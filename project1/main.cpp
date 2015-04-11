@@ -99,6 +99,41 @@ int main(int argc, char **argv) {
                                                                grid_geometry,
                                                                input_db->getDatabase("PatchHierarchy"))
                                                            );
+    
+      /*
+       * The HyprePoisson object is the main user object specific to the
+       * problem being solved.  It provides the implementations for setting
+       * up the grid and plotting data.  It also wraps up the solve
+       * process that includes making the initial guess, specifying the
+       * boundary conditions and call the solver.
+       */
+
+      std::string hypre_poisson_name = base_name + "::HyprePoisson";
+      std::string hypre_solver_name = hypre_poisson_name + "::poisson_hypre";
+      std::string bc_coefs_name = hypre_poisson_name + "::bc_coefs";
+
+      boost::shared_ptr<solv::CellPoissonHypreSolver> hypre_solver(
+         new solv::CellPoissonHypreSolver(
+            dim,
+            hypre_poisson_name,
+            input_db->isDatabase("hypre_solver") ?
+            input_db->getDatabase("hypre_solver") :
+            boost::shared_ptr<tbox::Database>()));
+
+      boost::shared_ptr<solv::LocationIndexRobinBcCoefs> bc_coefs(
+         new solv::LocationIndexRobinBcCoefs(
+            dim,
+            bc_coefs_name,
+            input_db->isDatabase("bc_coefs") ?
+            input_db->getDatabase("bc_coefs") :
+            boost::shared_ptr<tbox::Database>()));
+
+      HyprePoisson hypre_poisson(
+         hypre_poisson_name,
+         dim,
+         hypre_solver,
+         bc_coefs);
+    
   }
   
   tbox::SAMRAIManager::shutdown();
