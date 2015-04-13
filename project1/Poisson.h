@@ -38,7 +38,8 @@
 namespace SAMRAI {
 
 
-class Poisson
+class Poisson:
+   public mesh::StandardTagAndInitStrategy
 {
 public:
   Poisson(

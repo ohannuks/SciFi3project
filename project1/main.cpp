@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
           "CellTaggingMethod",
           &poisson,
           input_db->getDatabase("StandardTagAndInitialize")));
-    
+       
     boost::shared_ptr<mesh::BergerRigoutsos> box_generator(
        new mesh::BergerRigoutsos(
           dimensions,

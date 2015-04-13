@@ -43,7 +43,7 @@ Poisson::Poisson(
    /*
     * Define class member context
     */
-   d_variable_context = variable_database->getContext(object_name + ":Context");
+   d_variable_context = variable_database->getContext(_object_name + ":Context");
 
    /*
     * Register variables with hier::VariableDatabase
@@ -88,26 +88,56 @@ Poisson::~Poisson()
 
 }
 
+void Poisson::resetHierarchyConfiguration(
+     const boost::shared_ptr<hier::PatchHierarchy>& new_hierarchy,
+     int coarsest_level,
+     int finest_level) {
+  return;
+}
+
 void set_right_hand_side_data(hier::Box & patch_box,
                               boost::shared_ptr<geom::CartesianGridGeometry> grid_geometry,
                               boost::shared_ptr<geom::CartesianPatchGeometry> patch_geometry,
                               boost::shared_ptr<pdat::CellData<double> > right_hand_side_data) {
   // Get the cell lengths in the patch (in here grid geometry is patch geometry because we dont have mesh refinement)
   const int dimensions = 3;
-  const double cell_lengths[dimensions] = grid_geometry->getDx();
+  const double * cell_lengths = grid_geometry->getDx();
   const double dx = cell_lengths[0];
   const double dy = cell_lengths[1];
   const double dz = cell_lengths[2];
   
   // Get minimum coordinates (these will be used for iteration)
-  const double cell_min_coordinates[dimensions] = patch_geometry->getXLower();
-  const double min_x = cell_min_coordinates[0];
-  const double min_y = cell_min_coordinates[1];
-  const double min_z = cell_min_coordinates[2];
+  const double * patch_min_coordinates = patch_geometry->getXLower();
+  const double min_x = patch_min_coordinates[0];
+  const double min_y = patch_min_coordinates[1];
+  const double min_z = patch_min_coordinates[2];
   
   // Get the indices of the cells in x- y- and z-direction (will be used for iteration)
   const hier::Index cell_indices_lower = patch_box.lower();
   const hier::Index cell_indices_upper = patch_box.upper();
+  // i = x-dimension indice, j = y-dimension indice, k = z-dimension indice
+  const int i_min = cell_indices_lower[0];
+  const int i_max = cell_indices_upper[0];
+  const int j_min = cell_indices_lower[1];
+  const int j_max = cell_indices_upper[1];
+  const int k_min = cell_indices_lower[2];
+  const int k_max = cell_indices_upper[2];
+  
+  double * rho = right_hand_side_data->getPointer();
+  
+  int i, j, k;
+  for( k = k_min; k <= k_max; ++k ) {
+    for ( j = j_min; j <= j_max; ++j ) {
+      for ( i = i_min; i < i_max; ++i ) {
+        const double x = min_x + 0.5*dx + i*dx;
+        const double y = min_y + 0.5*dy + i*dy;
+        const double z = min_z + 0.5*dz + i*dz;
+        rho[k + (k_max - k_min)*j + (k_max - k_min)*(j_max - j_min)*i] = 0;
+      }
+    }
+  }
+  
+  
 
   //patch_box.getLocalId();
   //patch_box.
