@@ -26,7 +26,7 @@
 
 
 // Local includes:
-#include "poisson.h"
+#include "Poisson.h"
 
 using namespace std;
 using namespace SAMRAI;
@@ -52,10 +52,10 @@ int main(int argc, char **argv) {
     
     // Create input database, and parse all data in input file:
     boost::shared_ptr<tbox::InputDatabase> input_db(
-       new tbox::InputDatabase("input_db"));
+       new tbox::InputDatabase("input_db") );
     tbox::InputManager::getManager()->parseInputFile(input_filename, input_db);
     
-    //TODO: Find out what timer manager is
+    // TODO: Find out what timer manager is
     // Set up TIMER MANAGER
     
     if (input_db->isDatabase("TimerManager")) {
@@ -66,10 +66,11 @@ int main(int argc, char **argv) {
     boost::shared_ptr<tbox::Database> main_db(input_db->getDatabase("Main"));
     
     // Get dimensions of the problem from the main database
-    const tbox::Dimension dim(static_cast<unsigned short>(main_db->getInteger("dim")));
+    const tbox::Dimension dimensions(static_cast<unsigned short>(main_db->getInteger("dim")));
     // Read the base name for the project (save file name)
     string base_name = "unnamed";
     base_name = main_db->getStringWithDefault("base_name", base_name);
+    
         // Log all nodes in a parallel run:
         const string log_file_name = base_name + ".log";
         bool log_all_nodes = false;
@@ -84,9 +85,9 @@ int main(int argc, char **argv) {
     // Define grid geometry (We use Cartesian coordinates (not e.g. spherical)
     boost::shared_ptr<geom::CartesianGridGeometry> grid_geometry(
     new geom::CartesianGridGeometry(
-                                    dim,
-                                    base_name + "CartesianGridGeometry",
-                                    input_db->getDatabase("CartesianGridGeometry"))
+                                    dimensions,
+                                    base_name + "CartesianGeometry",
+                                    input_db->getDatabase("CartesianGeometry"))
                                    );
         // LOG FILE STUFF NOT INTERESTING
         tbox::plog << "Cartesian Geometry:" << endl;
@@ -108,31 +109,55 @@ int main(int argc, char **argv) {
        * boundary conditions and call the solver.
        */
 
-      std::string hypre_poisson_name = base_name + "::HyprePoisson";
-      std::string hypre_solver_name = hypre_poisson_name + "::poisson_hypre";
-      std::string bc_coefs_name = hypre_poisson_name + "::bc_coefs";
+    std::string poisson_name = base_name + "::Poisson";
+    std::string solver_name = poisson_name + "::poisson";
+    std::string bc_coefs_name = poisson_name + "::bc_coefs";
 
-      boost::shared_ptr<solv::CellPoissonHypreSolver> hypre_solver(
-         new solv::CellPoissonHypreSolver(
-            dim,
-            hypre_poisson_name,
-            input_db->isDatabase("hypre_solver") ?
-            input_db->getDatabase("hypre_solver") :
-            boost::shared_ptr<tbox::Database>()));
+//      boost::shared_ptr<solv::CellPoissonHypreSolver> hypre_solver(
+//         new solv::CellPoissonHypreSolver(
+//            dim,
+//            hypre_poisson_name,
+//            input_db->isDatabase("hypre_solver") ?
+//            input_db->getDatabase("hypre_solver") :
+//            boost::shared_ptr<tbox::Database>()));
 
-      boost::shared_ptr<solv::LocationIndexRobinBcCoefs> bc_coefs(
-         new solv::LocationIndexRobinBcCoefs(
-            dim,
-            bc_coefs_name,
-            input_db->isDatabase("bc_coefs") ?
-            input_db->getDatabase("bc_coefs") :
-            boost::shared_ptr<tbox::Database>()));
+    // Read and input boundary condition coefficients (Robin boundary coefficients)
+    boost::shared_ptr<solv::LocationIndexRobinBcCoefs> boundary_condition_coefficients(
+      new solv::LocationIndexRobinBcCoefs(
+         dimensions,
+         bc_coefs_name,
+         input_db->isDatabase("bc_coefs") ?
+         input_db->getDatabase("bc_coefs") :
+         boost::shared_ptr<tbox::Database>()));
 
-      HyprePoisson hypre_poisson(
-         hypre_poisson_name,
-         dim,
-         hypre_solver,
-         bc_coefs);
+    Poisson poisson(
+      poisson_name,
+      dimensions,
+      boundary_condition_coefficients);
+    
+    /*
+     * Create the tag-and-initializer, box-generator and load-balancer
+     * object references required by the gridding_algorithm object.
+     */
+    boost::shared_ptr<mesh::StandardTagAndInitialize> tag_and_initializer(
+       new mesh::StandardTagAndInitialize(
+          "CellTaggingMethod",
+          &poisson,
+          input_db->getDatabase("StandardTagAndInitialize")));
+    
+    boost::shared_ptr<mesh::BergerRigoutsos> box_generator(
+       new mesh::BergerRigoutsos(
+          dimensions,
+          input_db->getDatabase("BergerRigoutsos")));
+    
+    boost::shared_ptr<mesh::TreeLoadBalancer> load_balancer(
+       new mesh::TreeLoadBalancer(
+          dimensions,
+          "load balancer",
+          input_db->getDatabase("TreeLoadBalancer")));
+    
+    load_balancer->setSAMRAI_MPI(tbox::SAMRAI_MPI::getSAMRAIWorld());
+    
     
   }
   
