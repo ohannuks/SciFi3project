@@ -229,7 +229,127 @@ void Poisson::initializeLevelData(const boost::shared_ptr< hier::PatchHierarchy 
   }    // End patch loop.
 }
 
+/*
+ *************************************************************************
+ * Set up VisIt to plot internal data from this class.
+ * Tell the plotter about the refinement ratios.  Register variables
+ * appropriate for plotting.
+ *************************************************************************
+ */
+int Poisson::registerVariablesWithPlotter(
+   appu::VisItDataWriter& visit_writer) const {
+
+   /*
+    * This must be done once.
+    */
+   if (!d_patch_hierarchy) {
+      TBOX_ERROR(
+         d_object_name << ": No hierarchy in\n"
+                       << " HyprePoisson::registerVariablesWithPlotter\n"
+                       << "The hierarchy must be built before calling\n"
+                       << "this function.\n");
+   }
+   
+   /*
+    * Register variables with plotter.
+    */
+   visit_writer.registerPlotQuantity("Computed solution",
+      "SCALAR",
+      d_computed_solution_id);
+   visit_writer.registerDerivedPlotQuantity("Error",
+      "SCALAR",
+      (appu::VisDerivedDataStrategy *)this);
+   
+   visit_writer.registerPlotQuantity("Poisson source",
+      "SCALAR",
+      d_right_hand_side_id);
+   visit_writer.registerDerivedPlotQuantity("Patch level number",
+      "SCALAR",
+      (appu::VisDerivedDataStrategy *)this);
+
+   return 0;
+}
 
 
 
+/*
+ *************************************************************************
+ * Solve the Poisson problem.
+ *************************************************************************
+ */
+bool Poisson::solvePoisson()
+{
 
+   if (!d_patch_hierarchy) {
+      TBOX_ERROR("Cannot solve using an uninitialized object.\n");
+   }
+
+   const int level_number = 0;
+
+   /*
+    * Fill in the initial guess and Dirichlet boundary condition data.
+    * For this example, we want u=0 on all boundaries.
+    * The easiest way to do this is to just write 0 everywhere,
+    * simultaneous setting the boundary values and initial guess.
+    */
+   boost::shared_ptr<hier::PatchLevel> level(d_patch_hierarchy->getPatchLevel(
+                                                level_number));
+   // Iterate through patches
+   for (hier::PatchLevel::iterator ip(level->begin());
+        ip != level->end(); ++ip) {
+     // Get the patch
+     const boost::shared_ptr<hier::Patch>& patch = *ip;
+     // Get the patch data
+     boost::shared_ptr<pdat::CellData<double> > data(
+        BOOST_CAST<pdat::CellData<double>, hier::PatchData>(
+           patch->getPatchData(d_computed_solution_id)));
+     // Error checking
+     TBOX_ASSERT(data);
+     // Set zeros as the initial state
+     data->fill(0.0);
+   }
+   
+   return true;
+//   // d_poisson_hypre->setBoundaries( "Dirichlet" );
+//   d_poisson_hypre->setPhysicalBcCoefObject(d_bc_coefs.get());
+//
+//   /*
+//    * Set up HYPRE solver object.
+//    * The problem specification is set using the
+//    * CellPoissonSpecifications object then passed to the solver
+//    * for setting the coefficients.
+//    */
+//   d_poisson_hypre->initializeSolverState(d_hierarchy,
+//      level_number);
+//   solv::PoissonSpecifications sps("Hypre Poisson solver");
+//   sps.setCZero();
+//   sps.setDConstant(1.0);
+//   d_poisson_hypre->setMatrixCoefficients(sps);
+//
+//   /*
+//    * Solve the system.
+//    */
+//   tbox::plog << "solving..." << std::endl;
+//   int solver_ret;
+//   solver_ret = d_poisson_hypre->solveSystem(d_comp_soln_id,
+//         d_rhs_id);
+//   /*
+//    * Present data on the solve.
+//    */
+//   tbox::plog << "\t" << (solver_ret ? "" : "NOT ") << "converged " << "\n"
+//              << "      iterations: " << d_poisson_hypre->getNumberOfIterations()
+//              << "\n"
+//              << "      residual: " << d_poisson_hypre->getRelativeResidualNorm()
+//              << "\n"
+//              << std::flush;
+//
+//   /*
+//    * Deallocate state.
+//    */
+//   d_poisson_hypre->deallocateSolverState();
+//
+//   /*
+//    * Return whether solver converged.
+//    */
+//   return solver_ret ? true : false;
+}

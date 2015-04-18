@@ -84,6 +84,42 @@ public:
 
   //@}
   
+  /*!
+   * @brief Set up external plotter to plot internal
+   * data from this class.
+   *
+   * After calling this function, the external
+   * data writer may be used to write the
+   * visit file for this object.
+   *
+   * The internal hierarchy is used and must be
+   * established before calling this function.
+   * (This is commonly done by building a hierarchy
+   * with the mesh::StandardTagAndInitStrategy virtual
+   * functions implemented by this class.)
+   *
+   * @param visit_writer VisIt data writer
+   */
+  int
+  registerVariablesWithPlotter(
+     appu::VisItDataWriter& visit_writer) const;
+     
+  /*!
+   * @brief Solve using custom Poisson solver
+   *
+   * Set up the linear algebra problem and use a
+   * solv::CellPoissonHypreSolver object to solve it.
+   * -# Set initial guess
+   * -# Set boundary conditions
+   * -# Specify Poisson equation parameters
+   * -# Call solver
+   *
+   * @return whether solver converged
+   */
+  bool
+  solvePoisson();
+
+  
 private:
   std::string d_object_name;
 

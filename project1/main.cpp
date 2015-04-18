@@ -148,7 +148,8 @@ int main(int argc, char **argv) {
     boost::shared_ptr<mesh::BergerRigoutsos> box_generator(
        new mesh::BergerRigoutsos(
           dimensions,
-          input_db->getDatabase("BergerRigoutsos")));
+          input_db->getDatabase("BergerRigoutsos"))
+    );
     
     boost::shared_ptr<mesh::TreeLoadBalancer> load_balancer(
        new mesh::TreeLoadBalancer(
@@ -157,8 +158,56 @@ int main(int argc, char **argv) {
           input_db->getDatabase("TreeLoadBalancer")));
     
     load_balancer->setSAMRAI_MPI(tbox::SAMRAI_MPI::getSAMRAIWorld());
+     
+    /*
+     * Create the gridding algorithm used to generate the SAMR grid
+     * and create the grid.
+     */
+    boost::shared_ptr<mesh::GriddingAlgorithm> gridding_algorithm(
+       new mesh::GriddingAlgorithm(
+          patch_hierarchy,
+          "DistributedGridding Algorithm",
+          input_db->getDatabase("GriddingAlgorithm"),
+          tag_and_initializer,
+          box_generator,
+          load_balancer));
+                         // write some output stuff for logging
+                         tbox::plog << "Gridding algorithm:" << endl;
+                         gridding_algorithm->printClassData(tbox::plog);
+
     
+    /*
+     * Make the coarsest patch level where we will be solving.
+     */
+    gridding_algorithm->makeCoarsestLevel(0.0);
     
+    /*
+     * Create the visit data writer (for writing data). This registers 
+     * the variables to be saved and will be used by SAMRAI to save data 
+     * in parallel.
+     */
+    string vis_filename =
+       main_db->getStringWithDefault("vis_filename", base_name);
+    boost::shared_ptr<appu::VisItDataWriter> visit_writer(
+       boost::make_shared<appu::VisItDataWriter>(dimensions,
+                                                 "VisIt Writer",
+                                                 vis_filename + ".visit"));
+    poisson.registerVariablesWithPlotter(*visit_writer);
+      
+                    /*
+                     * After creating all objects and initializing their state,
+                     * we print the input database and variable database contents
+                     * to the log file.
+                     */
+                    tbox::plog << "\nCheck input data and variables before simulation:"
+                               << endl;
+                    tbox::plog << "Input database..." << endl;
+                    input_db->printClassData(tbox::plog);
+  
+    /*
+     * Solve.
+     */
+    bool converged = poisson.solvePoisson();
   }
   
   tbox::SAMRAIManager::shutdown();
