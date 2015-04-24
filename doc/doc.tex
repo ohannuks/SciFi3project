@@ -1,0 +1,44 @@
+\documentclass[titlepage, 11pt]{article}
+\usepackage[english]{babel}           % LANGEUAGE, UTF-8
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}                  % ALL MATH FEATURES
+\usepackage{graphicx}                 % GRAPHICS                  
+\usepackage{float}                    % IMPROVED FIGURE POSITIONING
+\usepackage[labelsep=period]{caption} % IMPROVED CAPTIONS
+\usepackage{url}                      % WRITE URLS
+\usepackage{tikz}                     % MAKE TIKZ VECTOR GRAPHICS
+\usepackage{tocloft}                  % CONTROL TABLE OF CONTENTS
+\usepackage[authoryear,round]{natbib} % REFERENCES
+\usepackage{apalike}
+
+\renewcommand{\familydefault}{lmr}    % SET DOCUMENT FONT
+\makeatletter                         % SET NICE SECTION HEADING STYLES
+\renewcommand{\section}{\@startsection
+        {section}
+        {2}
+        {0mm}
+        {1.2\baselineskip}
+        {\baselineskip}
+        {\centering\normalsize}}
+\renewcommand{\subsection}{\@startsection
+        {subsection}
+        {2}
+        {0mm}
+        {.8\baselineskip}
+        {.5\baselineskip}
+        {\bfseries\normalsize}}
+\renewcommand{\subsubsection}{\@startsection
+        {subsubsection}
+        {2}
+        {0mm}
+        {.5\baselineskip}
+        {0mm}
+        {\it\bfseries\normalsize}}
+\makeatother
+
+\begin{document}
+%\section*{REFERENCES}
+%\bibliography{NameOfReferenceFile}{}
+%\bibliographystyle{plainnat}
+\end{document}
