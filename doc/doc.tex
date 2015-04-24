@@ -2,6 +2,10 @@
 \usepackage[english]{babel}           % LANGEUAGE, UTF-8
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{url}                      % Url
+\usepackage{listing}                  % Code block library
+\usepackage{algpseudocode}            % Pseudocode library
+\usepackage{algorithm}                % Algorithms
 \usepackage{amsmath}                  % ALL MATH FEATURES
 \usepackage{graphicx}                 % GRAPHICS                  
 \usepackage{float}                    % IMPROVED FIGURE POSITIONING
@@ -40,6 +44,9 @@
 \begin{document}
 %\section*{REFERENCES}
 %\bibliography{NameOfReferenceFile}{}
+
+%\lstset{language=Pascal}
+
 %\bibliographystyle{plainnat}
 
 \section*{DESCRIPTION OF SIMULATION}
@@ -51,12 +58,75 @@ matter in an exapanding universe.
 
 \subsection*{Equations to solve}
 
-We solve the poisson equation and then accelerate particles via $\vec{F}=m\vec{a}$
+We solve the poisson equation and then accelerate particles via $\mathbf{F}=m\mathbf{a}$
 
 \subsection*{Algorithm}
 
-We use the SOR algorithm
+The \textbf{Poisson equation} can be solved with The Successive Over Relaxation (SOR) 
+method documented in \url{http://www.physics.buffalo.edu/phy410-505/2011/topic3/app1/index.html}. 
 
-The SOR algorithm is an algorithm that uses an iterative method for solving the poisson equation. It is more efficient than for instance 
+For the particles, we update particle speed with simplest box-time integration method.
+
+So in total, the main algorithm will have three parts; calculating potential $\phi$ 
+from density $\rho$, updating particles using $\phi$, then re-calculating density 
+$\rho$.
+
+Overview of the algorithm:
+
+\begin{algorithm}
+ \label{alg:main}
+ \caption{Main program}
+ \begin{algorithmic}
+  \State Set up boundary conditions
+  \State Set initial $\rho$
+  \State Set initial guess for $\phi$
+  \Loop
+   \State Calculate $\phi \gets \phi_{next}$
+   \For{ Every particle $p$ }
+    \State Calculate new particle velocity and position for $p$
+   \EndFor
+   \State Calculate new $\rho$
+   \State $t \gets t+dt$
+  \EndLoop
+ \end{algorithmic}
+
+\end{algorithm}
+
+
+\subsubsection*{Poisson equation.}\ For the Poisson problem, we use the SOR algorithm.
+
+Pseudocode: 
+
+\url{http://openi.nlm.nih.gov/detailedresult.php?img=2234413_1743-0003-4-46-16&req=4}
+
+\url{http://www.physics.buffalo.edu/phy410-505/2011/topic3/app1/index.html}
+
+\url{http://cs.ucsb.edu/~koc/docs/c13.pdf}
+
+\begin{algorithm}
+ \label{pseudo:SOR}
+ \caption{SOR pseudocode}
+\begin{algorithmic}[1]
+ \Function{SORAlgorithm}{$grid$, tolerance}
+  \For{ $n = 0,1,..n_{max_iterations}$ }
+   \State Error $\sigma \gets 0$
+   \For{ Every grid point $\phi_{i,j,k}$ }
+    \State $\phi_{i,j,k}^{(n+1)} \gets (1-\omega)\phi_{i,j,k}^{(n)} + \frac{\omega}{6} (\phi_{i+1,j,k}^{(n)} + \phi_{i-1,j,k}^{(n)} + \phi_{i,j+1,k}^{(n)} + \phi_{i,j-1,k}^{(n)} + \phi_{i,j,k+1}^{(n)} + \phi_{i,j,k-1}^{(n)} + h^3\rho_{i,j,k})$
+    \State Update $\sigma$
+   \EndFor
+   \State If $\sigma \leq tolerance$, break
+  \EndFor
+  \State \Return $grid$
+ \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
 
 \end{document}
+
+
+
+
+
+
