@@ -49,9 +49,35 @@ matter in an exapanding universe.
 
 \section*{PLAN FOR POISSON SOLVER}
 
-\subsection*{Equations to solve}
+\subsection*{Equations to Solve}
+The first step is to solve the gravitational potential $\phi$ in a given region 
+from the Poisson's equation for gravity at time $t_0$
+\begin{equation}
+\nabla^2 \phi = 4\pi G\rho. 
+\end{equation}
+For this task we are given some initial mass density $\rho$, determined by a 
+distribution of massive particles, and some boundary conditions.
 
-We solve the poisson equation and then accelerate particles via $\vec{F}=m\vec{a}$
+Once a solution for the potential has been obtained, the corresponding force
+field can be solved from 
+\begin{equation}
+\mathbf{F} = -\nabla \phi.
+\end{equation}
+
+Given the position and velocity for a particle at $t_0$, we can can solve a 
+new position and velocity for the particle at time $t$ from Newton's second law
+\begin{align}
+\mathbf{v}(t) &= \int_{t_0}^{t}\frac{\mathbf{F}}{m}dt' + \mathbf{v}(t_0)\\
+\mathbf{x}(t) &= \int_{t_0}^{t}\mathbf{v}(t')dt' + \mathbf{x}(t_0).
+\end{align}
+Here it is assumed that the time step is so small that the force field remains 
+unchanged.
+
+After calculating the new particle positions a new mass density can be
+obtained and inserted back to the Poisson's equation.
+
+
+
 
 \subsection*{Algorithm}
 
