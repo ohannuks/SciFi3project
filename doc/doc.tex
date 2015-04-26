@@ -126,14 +126,16 @@ Pseudocode:
  \label{pseudo:SOR}
  \caption{SOR pseudocode}
 \begin{algorithmic}[1]
- \Function{SORAlgorithm}{$grid$, tolerance}
+ \Function{SOR\_Algorithm}{$grid$, tolerance}
   \For{ $n = 0,1,..n_{max_iterations}$ }
    \State Error $\sigma \gets 0$
    \For{ Every grid point $\phi_{i,j,k}$ }
     \State $\phi_{i,j,k}^{(n+1)} \gets (1-\omega)\phi_{i,j,k}^{(n)} + \frac{\omega}{6} (\phi_{i+1,j,k}^{(n)} + \phi_{i-1,j,k}^{(n)} + \phi_{i,j+1,k}^{(n)} + \phi_{i,j-1,k}^{(n)} + \phi_{i,j,k+1}^{(n)} + \phi_{i,j,k-1}^{(n)} + h^3\rho_{i,j,k})$
     \State Update $\sigma$
    \EndFor
-   \State If $\sigma \leq tolerance$, break
+   \If{$\sigma \leq tolerance$} 
+    break
+   \EndIf
   \EndFor
   \State \Return $grid$
  \EndFunction
