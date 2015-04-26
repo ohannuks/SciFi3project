@@ -30,6 +30,7 @@
 #include <CCA/Ports/SimulationInterface.h>
 #include <Core/Grid/Variables/ComputeSet.h>
 #include <Core/Grid/Variables/VarLabel.h>
+#include <Core/Grid/Variables/ParticleVariable.h>
 
 namespace Uintah {
   class SimpleMaterial;
@@ -63,6 +64,23 @@ WARNING
   
 ****************************************/
 
+  // Particle labels will be stored here. This is purely for convention so we dont have to have xvelocity, yvelocity etc in Poisson2 class.
+  class ParticleLabels {
+  public:
+     const VarLabel* pXLabel;
+     const VarLabel* pXLabel_preReloc;
+     const VarLabel* pMassLabel;
+     const VarLabel* pMassLabel_preReloc;
+     const VarLabel* pParticleIDLabel;
+     const VarLabel* pParticleIDLabel_preReloc;
+ 
+     std::vector<std::vector<const VarLabel*> > d_particleState;
+     std::vector<std::vector<const VarLabel*> > d_particleState_preReloc;
+     ParticleLabels() {}
+     ~ParticleLabels() {}
+
+  };
+
   class Poisson2 : public UintahParallelComponent, public SimulationInterface {
   public:
     Poisson2(const ProcessorGroup* myworld);
@@ -95,12 +113,15 @@ WARNING
 		 const MaterialSubset* matls,
 		 DataWarehouse* old_dw, DataWarehouse* new_dw);
 
+    ParticleLabels * particle_labels;
     const VarLabel* phi_label;
     const VarLabel* residual_label;
     SimulationStateP sharedState_;
     double delt_;
     double maxresidual_;
     SimpleMaterial* mymat_;
+    int doOutput_;
+    int doGhostCells_;
 
     Poisson2(const Poisson2&);
     Poisson2& operator=(const Poisson2&);
