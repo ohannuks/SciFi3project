@@ -30,6 +30,7 @@
 #include <CCA/Ports/SimulationInterface.h>
 #include <Core/Grid/Variables/ComputeSet.h>
 #include <Core/Grid/Variables/ParticleVariable.h>
+#include <Core/Grid/Variables/VarLabel.h>
 
 namespace Uintah {
   class SimpleMaterial;
@@ -86,10 +87,31 @@ WARNING
 			       const PatchSubset* patches,
 			       const MaterialSubset* matls,
 			       DataWarehouse* old_dw, DataWarehouse* new_dw);
+
     void timeAdvance(const ProcessorGroup*,
 		     const PatchSubset* patches,
 		     const MaterialSubset* matls,
-		     DataWarehouse* old_dw, DataWarehouse* new_dw);
+		     DataWarehouse* old_dw, DataWarehouse* new_dw,
+		     LevelP, Scheduler*);
+    void poisson_solver(const ProcessorGroup*,
+		 const PatchSubset* patches,
+		 const MaterialSubset* matls,
+		 DataWarehouse* old_dw, DataWarehouse* new_dw);
+
+    void calculate_potential_gradients(const ProcessorGroup* pg,
+                                       const PatchSubset* patches,
+                                       const MaterialSubset* matls,
+                                       DataWarehouse* old_dw, DataWarehouse* new_dw,
+                                       LevelP level, Scheduler* sched);
+
+    const VarLabel* phi_label;
+    const VarLabel* FX_label;
+    const VarLabel* FY_label;
+    const VarLabel* FZ_label;
+    const VarLabel* residual_label;
+    double poisson_delt_;
+    double poisson_maxresidual_;
+    
     ExamplesLabel* lb_;
     SimulationStateP sharedState_;
     double delt_;
