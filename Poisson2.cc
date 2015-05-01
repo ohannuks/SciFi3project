@@ -44,8 +44,6 @@
 using namespace std;
 using namespace Uintah;
 
-
-
 Poisson2::Poisson2(const ProcessorGroup* myworld)
   : UintahParallelComponent(myworld)
 {
@@ -53,12 +51,10 @@ Poisson2::Poisson2(const ProcessorGroup* myworld)
                                NCVariable<double>::getTypeDescription());
   residual_label = VarLabel::create("residual", 
                                     sum_vartype::getTypeDescription());
-  particle_labels = scinew ParticleLabels(); // Create labels for Uintah particle labels
 }
 
 Poisson2::~Poisson2()
 {
-  delete particle_labels; // Delete particle labels
   VarLabel::destroy(phi_label);
   VarLabel::destroy(residual_label);
 }
@@ -68,15 +64,9 @@ void Poisson2::problemSetup(const ProblemSpecP& params,
                             GridP&, SimulationStateP& sharedState)
 {
   sharedState_ = sharedState;
-  dynamic_cast<Scheduler*>(getPort("scheduler"))->setPositionVar(particle_labels->pXLabel); // Declare particle x label as position variable
   ProblemSpecP poisson = params->findBlock("Poisson");
-  
-  poisson->getWithDefault("doOutput", doOutput_, 0); // Particle stuff
-  poisson->getWithDefault("doGhostCells", doGhostCells_ , 0); // Particle stuff
-  
   poisson->require("delt", delt_);
   poisson->require("maxresidual", maxresidual_);
-  
   mymat_ = scinew SimpleMaterial();
   sharedState->registerSimpleMaterial(mymat_);
 }
@@ -84,18 +74,9 @@ void Poisson2::problemSetup(const ProblemSpecP& params,
 void Poisson2::scheduleInitialize(const LevelP& level,
 			       SchedulerP& sched)
 {
-
-  sched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
-  
   Task* task = scinew Task("initialize",
 			   this, &Poisson2::initialize);
-  
-  // In initialization we set particle labels and phi label
-  task->computes(particle_labels->pXLabel);
-  task->computes(particle_labels->pMassLabel);
-  task->computes(particle_labels->pParticleIDLabel);
   task->computes(phi_label);
-  
   sched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
 }
  
@@ -104,7 +85,6 @@ void Poisson2::scheduleComputeStableTimestep(const LevelP& level,
 {
   Task* task = scinew Task("computeStableTimestep",
 			   this, &Poisson2::computeStableTimestep);
-  // Make a subschedule in computestabletimestep
   task->computes(sharedState_->get_delt_label(),level.get_rep());
   sched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
 }
@@ -112,62 +92,15 @@ void Poisson2::scheduleComputeStableTimestep(const LevelP& level,
 void
 Poisson2::scheduleTimeAdvance( const LevelP& level, SchedulerP& sched)
 {
-  const MaterialSet* matls = sharedState_->allMaterials();
-  
   Task* task = scinew Task("timeAdvance",
 			   this, &Poisson2::timeAdvance,
 			   level, sched.get_rep());
   task->hasSubScheduler();
   task->requires(Task::OldDW, phi_label, Ghost::AroundNodes, 1);
-
-  // set this in problemSetup.  0 is no ghost cells, 1 is all with 1 ghost
-  // atound-node, and 2 mixes them
-  if (doGhostCells_ == 0) {
-    task->requires(Task::OldDW, particle_labels->pParticleIDLabel, Ghost::None, 0);
-    task->requires(Task::OldDW, particle_labels->pXLabel, Ghost::None, 0);
-    task->requires(Task::OldDW, particle_labels->pMassLabel, Ghost::None, 0);
-  }
-  
-  else if (doGhostCells_ == 1) {
-    task->requires(Task::OldDW, particle_labels->pXLabel, Ghost::AroundNodes, 1);
-    task->requires(Task::OldDW, particle_labels->pMassLabel, Ghost::AroundNodes, 1);
-    task->requires(Task::OldDW, particle_labels->pParticleIDLabel, Ghost::AroundNodes, 1);
-  }
-  else if (doGhostCells_ == 2) {
-    task->requires(Task::OldDW, particle_labels->pXLabel, Ghost::None, 0);
-    task->requires(Task::OldDW, particle_labels->pMassLabel, Ghost::AroundNodes, 1);
-    task->requires(Task::OldDW, particle_labels->pParticleIDLabel, Ghost::None, 0);
-  }
-  
   task->computes(phi_label);
-  
-  task->computes(particle_labels->pXLabel_preReloc);
-  task->computes(particle_labels->pMassLabel_preReloc);
-  task->computes(particle_labels->pParticleIDLabel_preReloc);
-  
   LoadBalancer* lb = sched->getLoadBalancer();
   const PatchSet* perproc_patches = lb->getPerProcessorPatchSet(level);
   sched->addTask(task, perproc_patches, sharedState_->allMaterials());
-  
-  particle_labels->d_particleState.clear();
-  particle_labels->d_particleState_preReloc.clear();
-  for (int m = 0; m < matls->size(); m++) {
-    vector<const VarLabel*> vars;
-    vector<const VarLabel*> vars_preReloc;
-
-    vars.push_back(particle_labels->pMassLabel);
-    vars.push_back(particle_labels->pParticleIDLabel);
-
-    vars_preReloc.push_back(particle_labels->pMassLabel_preReloc);
-    vars_preReloc.push_back(particle_labels->pParticleIDLabel_preReloc);
-    particle_labels->d_particleState.push_back(vars);
-    particle_labels->d_particleState_preReloc.push_back(vars_preReloc);
-  }
-  
-  sched->scheduleParticleRelocation(level, particle_labels->pXLabel_preReloc,
-				    particle_labels->d_particleState_preReloc,
-				    particle_labels->pXLabel, particle_labels->d_particleState,
-				    particle_labels->pParticleIDLabel, matls);
 }
 
 void Poisson2::computeStableTimestep(const ProcessorGroup*,
@@ -223,34 +156,6 @@ void Poisson2::initialize(const ProcessorGroup*,
       }
 #endif
 
-    }
-  }
-  for( int p=0; p<patches->size(); ++p ){
-    const Patch* patch = patches->get(p);
-    const Point low = patch->cellPosition(patch->getCellLowIndex());
-    const Point high = patch->cellPosition(patch->getCellHighIndex());
-    for(int m = 0;m<matls->size();m++){
-      srand(1);
-      const int numParticles = 10;
-      const int matl = matls->get(m);
-
-      ParticleVariable<Point> px;
-      ParticleVariable<double> pmass;
-      ParticleVariable<long64> pids;
-
-      ParticleSubset* subset = new_dw->createParticleSubset(numParticles,matl,patch);
-      new_dw->allocateAndPut( px,    particle_labels->pXLabel,          subset );
-      new_dw->allocateAndPut( pmass, particle_labels->pMassLabel,       subset );
-      new_dw->allocateAndPut( pids,  particle_labels->pParticleIDLabel, subset );
-
-      for( int i = 0; i < numParticles; ++i ){
-        const Point pos( (((float) rand()) / RAND_MAX * ( high.x() - low.x()-1) + low.x()),
-                         (((float) rand()) / RAND_MAX * ( high.y() - low.y()-1) + low.y()),
-                         (((float) rand()) / RAND_MAX * ( high.z() - low.z()-1) + low.z()) );
-        px[i] = pos;
-        pids[i] = patch->getID()*numParticles+i;
-        pmass[i] = ((float) rand()) / RAND_MAX * 10;
-      }
     }
   }
 }

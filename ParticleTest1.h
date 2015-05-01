@@ -23,13 +23,13 @@
  */
 
 
-#ifndef Packages_Uintah_CCA_Components_Examples_Poisson2_h
-#define Packages_Uintah_CCA_Components_Examples_Poisson2_h
+#ifndef Packages_Uintah_CCA_Components_Examples_ParticleTest1_h
+#define Packages_Uintah_CCA_Components_Examples_ParticleTest1_h
 
 #include <Core/Parallel/UintahParallelComponent.h>
 #include <CCA/Ports/SimulationInterface.h>
 #include <Core/Grid/Variables/ComputeSet.h>
-#include <Core/Grid/Variables/VarLabel.h>
+#include <Core/Grid/Variables/ParticleVariable.h>
 
 namespace Uintah {
   class SimpleMaterial;
@@ -38,13 +38,13 @@ namespace Uintah {
 /**************************************
 
 CLASS
-   Poisson2
+   ParticleTest1
    
-   Poisson2 simulation
+   ParticleTest1 simulation
 
 GENERAL INFORMATION
 
-   Poisson2.h
+   ParticleTest1.h
 
    Steven G. Parker
    Department of Computer Science
@@ -54,7 +54,7 @@ GENERAL INFORMATION
   
    
 KEYWORDS
-   Poisson2
+   ParticleTest1
 
 DESCRIPTION
    Long description...
@@ -63,10 +63,10 @@ WARNING
   
 ****************************************/
 
-  class Poisson2 : public UintahParallelComponent, public SimulationInterface {
+  class ParticleTest1 : public UintahParallelComponent, public SimulationInterface {
   public:
-    Poisson2(const ProcessorGroup* myworld);
-    virtual ~Poisson2();
+    ParticleTest1(const ProcessorGroup* myworld);
+    virtual ~ParticleTest1();
 
     virtual void problemSetup(const ProblemSpecP& params, 
                               const ProblemSpecP& restart_prob_spec, 
@@ -77,6 +77,7 @@ WARNING
 					       SchedulerP&);
     virtual void scheduleTimeAdvance( const LevelP& level, 
 				      SchedulerP&);
+
   private:
     void initialize(const ProcessorGroup*,
 		    const PatchSubset* patches, const MaterialSubset* matls,
@@ -88,22 +89,16 @@ WARNING
     void timeAdvance(const ProcessorGroup*,
 		     const PatchSubset* patches,
 		     const MaterialSubset* matls,
-		     DataWarehouse* old_dw, DataWarehouse* new_dw,
-		     LevelP, Scheduler*);
-    void iterate(const ProcessorGroup*,
-		 const PatchSubset* patches,
-		 const MaterialSubset* matls,
-		 DataWarehouse* old_dw, DataWarehouse* new_dw);
-
-    const VarLabel* phi_label;
-    const VarLabel* residual_label;
+		     DataWarehouse* old_dw, DataWarehouse* new_dw);
+    ExamplesLabel* lb_;
     SimulationStateP sharedState_;
     double delt_;
-    double maxresidual_;
     SimpleMaterial* mymat_;
+    int doOutput_;
+    int doGhostCells_;
+    ParticleTest1(const ParticleTest1&);
+    ParticleTest1& operator=(const ParticleTest1&);
 
-    Poisson2(const Poisson2&);
-    Poisson2& operator=(const Poisson2&);
 	 
   };
 }
