@@ -1,0 +1,79 @@
+\documentclass[notitlepage, 11pt]{article}
+\usepackage[english]{babel}           % LANGEUAGE=ENGLISH, UTF-8
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}                  % ALL MATH FEATURES
+\usepackage{graphicx}                 % GRAPHICS                  
+\usepackage{float}                    % IMPROVED FIGURE POSITIONING
+\usepackage[labelsep=period]{caption} % IMPROVED CAPTIONS
+\usepackage{url}                      % WRITE URLS
+\usepackage{tikz}                     % MAKE TIKZ VECTOR GRAPHICS
+\usepackage{tocloft}                  % CONTROL TABLE OF CONTENTS
+\usepackage[authoryear,round]{natbib} % REFERENCES
+\usepackage{apalike}
+\usepackage{pdflscape}                % USE LANDSCAPE MODE
+\usepackage{listing}                  % WRITING CODE AND ALGORITHMS
+\usepackage{algpseudocode}            
+\usepackage{algorithm}  
+%\usepackage{authblk}
+
+\renewcommand{\familydefault}{lmr}           % SET DOCUMENT FONT
+\makeatletter                         
+\renewcommand{\section}{\@startsection       % SECTION
+        {section}
+        {2ex}
+        {0mm}
+        {1.2\baselineskip}
+        {\baselineskip}
+        {\centering\normalsize}}
+\renewcommand{\subsection}{\@startsection    % SUBSECTION
+        {subsection}
+        {2ex}
+        {0mm}
+        {.8\baselineskip}
+        {.5\baselineskip}
+        {\bfseries\normalsize}}
+\renewcommand{\subsubsection}{\@startsection % SUBSUBSECTION
+        {subsubsection}
+        {2ex}
+        {0mm}
+        {.5\baselineskip}
+        {0mm}
+        {\it\bfseries\norsmalsize}}    
+\makeatother
+
+\title{Simulating dark matter in an expanding universe using a parallel multigrid method}
+\author{{\em Otto Hannuksela} \and {\em Janne Lampilahti}}
+\date{\today}
+
+\begin{document}
+\maketitle
+\section*{INTRODUCTION}
+% introduce subject:
+%     what is DM?
+%     why is it important?
+% how are simulations used to study DM?
+% What did we do?
+
+\section*{METHODS}
+\subsection*{Theory}
+% poisson's equation of gravity
+% newton's second law
+\subsection*{Algortihms}
+% The main algortihm
+% SOR algorithm
+\section*{IMPLEMENTATION}
+\subsection*{Uintah}
+% describe uintah
+\subsection*{Program}
+\section*{RESULTS}
+% visit figure:
+% initial vs final condition
+% mp4 movie...
+\section*{CONCLUSIONS}
+% what should we do next?
+
+%\renewcommand{\refname}{REFERENCES} 
+%\bibliography{NameOfReferenceFile}{}
+%\bibliographystyle{plainnat}
+\end{document}
