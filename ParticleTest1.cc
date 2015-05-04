@@ -289,7 +289,29 @@ void ParticleTest1::calculate_potential_gradients(const ProcessorGroup* pg,
                                                   const MaterialSubset* matls,
                                                   DataWarehouse* old_dw, DataWarehouse* new_dw,
                                                   LevelP level, Scheduler* sched) {
-  
+  //Interpolate Particles To Grid (from AMRMPM)
+//      //double pSp_vol = 1./mpm_matl->getInitialDensity();
+//      for (ParticleSubset::iterator iter = pset->begin();iter != pset->end(); iter++){
+//        particleIndex idx = *iter;
+//
+//        // Get the node indices that surround the cell
+//        interpolator->findCellAndWeights(px[idx],ni,S,psize[idx],pDeformationMeasure[idx]); //ParticleInterpolator
+//
+//        pmom = pvelocity[idx]*pmass[idx];
+//        
+//        // Add each particles contribution to the local mass & velocity 
+//        IntVector node;
+//        for(int k = 0; k < n8or27; k++) {
+//          node = ni[k];
+//          if(patch->containsNode(node)) {
+//            gmass[node]          += pmass[idx]                     * S[k];
+//            gvelocity[node]      += pmom                           * S[k];
+//            gvolume[node]        += pvolume[idx]                   * S[k];
+//            gexternalforce[node] += pexternalforce[idx]            * S[k];
+//            gTemperature[node]   += pTemperature[idx] * pmass[idx] * S[k];
+//          }
+//        }
+//      }  // End of particle loop
 }
 
 
