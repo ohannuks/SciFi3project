@@ -42,6 +42,8 @@
 #include <Core/Grid/Grid.h>
 #include <Core/Grid/BoundaryConditions/BCDataArray.h>
 #include <Core/Grid/BoundaryConditions/BoundCond.h>
+#include <Core/Grid/ParticleInterpolator.h>
+#include <Core/Grid/LinearInterpolator.h>
 
 
 #include <iostream>
@@ -60,11 +62,11 @@ ParticleTest1::ParticleTest1(const ProcessorGroup* myworld)
                                     sum_vartype::getTypeDescription());
   
   // Create face-centered variables
-  FX_label = VarLabel::create("F_x", SFCXVariable<double>::getTypeDescription());
+  FX_label = VarLabel::create("F_x", NCVariable<double>::getTypeDescription());
   
-  FY_label = VarLabel::create("F_y", SFCYVariable<double>::getTypeDescription());
+  FY_label = VarLabel::create("F_y", NCVariable<double>::getTypeDescription());
   
-  FZ_label = VarLabel::create("F_z", SFCZVariable<double>::getTypeDescription());
+  FZ_label = VarLabel::create("F_z", NCVariable<double>::getTypeDescription());
   
   lb_ = scinew ExamplesLabel();
 }
@@ -108,6 +110,9 @@ void ParticleTest1::scheduleInitialize(const LevelP& level,
   task->computes(lb_->pMassLabel);
   task->computes(lb_->pParticleIDLabel);
   task->computes(phi_label);
+  task->computes(FX_label);
+  task->computes(FY_label);
+  task->computes(FZ_label);
   sched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
 }
  
@@ -169,6 +174,15 @@ ParticleTest1::scheduleTimeAdvance( const LevelP& level, SchedulerP& sched)
   LoadBalancer* lb = sched->getLoadBalancer();
   const PatchSet* perproc_patches = lb->getPerProcessorPatchSet(level);
   sched->addTask(task, perproc_patches, sharedState_->allMaterials());
+  
+  // Gradient
+  //// Calculate gradient:
+  Task* gradient_task = scinew Task("calculate_gradient", this, &ParticleTest1::calculate_potential_gradients);
+  gradient_task->requires(Task::NewDW, phi_label, Ghost::AroundNodes, 1);
+  gradient_task->computes(FX_label);
+  gradient_task->computes(FY_label);
+  gradient_task->computes(FZ_label);
+  sched->addTask(gradient_task, perproc_patches, sharedState_->allMaterials());
 
   lb_->d_particleState.clear();
   lb_->d_particleState_preReloc.clear();
@@ -254,8 +268,17 @@ void ParticleTest1::initialize(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
       NCVariable<double> phi;
+      NCVariable<double> F_x;
+      NCVariable<double> F_y;
+      NCVariable<double> F_z;
+      new_dw->allocateAndPut(F_x, FX_label, matl, patch);
+      new_dw->allocateAndPut(F_y, FY_label, matl, patch);
+      new_dw->allocateAndPut(F_z, FZ_label, matl, patch);
       new_dw->allocateAndPut(phi, phi_label, matl, patch);
       phi.initialize(0);
+      F_x.initialize(0);
+      F_y.initialize(0);
+      F_z.initialize(0);
 
       for (Patch::FaceType face = Patch::startFace; face <= Patch::endFace;
            face=Patch::nextFace(face)) {
@@ -287,8 +310,95 @@ void ParticleTest1::initialize(const ProcessorGroup*,
 void ParticleTest1::calculate_potential_gradients(const ProcessorGroup* pg,
                                                   const PatchSubset* patches,
                                                   const MaterialSubset* matls,
-                                                  DataWarehouse* old_dw, DataWarehouse* new_dw,
-                                                  LevelP level, Scheduler* sched) {
+                                                  DataWarehouse* old_dw, DataWarehouse* new_dw) {
+
+  //cout << "hello" << endl;
+  // Poisson solver stuff:
+  for(int p=0;p<patches->size();p++){
+    const Patch* patch = patches->get(p);
+    for(int m = 0;m<matls->size();m++){
+      int matl = matls->get(m);
+
+      constNCVariable<double> phi;
+      NCVariable<double> F_x, F_y, F_z;
+      
+      new_dw->get(phi, phi_label, matl, patch, Ghost::AroundNodes, 1);
+      new_dw->allocateAndPut(F_x, FX_label, matl, patch);
+      new_dw->allocateAndPut(F_y, FY_label, matl, patch);
+      new_dw->allocateAndPut(F_z, FZ_label, matl, patch);
+      F_x.initialize(0);
+      F_y.initialize(0);
+      F_z.initialize(0);
+      
+      // Calculate gradient:
+      Vector dx = patch->dCell();
+      IntVector l = patch->getNodeLowIndex();
+      IntVector h = patch->getNodeHighIndex();
+      
+      l += IntVector(patch->getBCType(Patch::xminus) == Patch::Neighbor?0:1,
+                     patch->getBCType(Patch::yminus) == Patch::Neighbor?0:1,
+                     patch->getBCType(Patch::zminus) == Patch::Neighbor?0:1);
+      h -= IntVector(patch->getBCType(Patch::xplus) == Patch::Neighbor?0:1,
+                     patch->getBCType(Patch::yplus) == Patch::Neighbor?0:1,
+                     patch->getBCType(Patch::zplus) == Patch::Neighbor?0:1);
+
+      for( NodeIterator iter(l,h); !iter.done(); iter++ ) {
+        F_x[*iter] = (phi[*iter+IntVector(1,0,0)] - phi[*iter + IntVector(-1,0,0)]) / (2.0*dx[0]);
+        F_y[*iter] = (phi[*iter+IntVector(0,1,0)] - phi[*iter + IntVector(0,-1,0)]) / (2.0*dx[1]);
+        F_z[*iter] = (phi[*iter+IntVector(0,0,1)] - phi[*iter + IntVector(0,0,-1)]) / (2.0*dx[2]);
+      }
+    }
+  }
+//  for(int p=0;p<patches->size();p++){
+//    const Patch* patch = patches->get(p);
+//    for(int m = 0;m<matls->size();m++){
+//      int matl = matls->get(m);
+//      constNCVariable<double> phi;
+//      old_dw->get(phi, phi_label, matl, patch, Ghost::AroundNodes, 1);
+//      NCVariable<double> newphi;
+//      new_dw->allocateAndPut(newphi, phi_label, matl, patch);
+//      newphi.copyPatch(phi, newphi.getLow(), newphi.getHigh());
+//      double residual=0;
+//      IntVector l = patch->getNodeLowIndex();
+//      IntVector h = patch->getNodeHighIndex();
+//      l += IntVector(patch->getBCType(Patch::xminus) == Patch::Neighbor?0:1,
+//		     patch->getBCType(Patch::yminus) == Patch::Neighbor?0:1,
+//		     patch->getBCType(Patch::zminus) == Patch::Neighbor?0:1);
+//      h -= IntVector(patch->getBCType(Patch::xplus) == Patch::Neighbor?0:1,
+//		     patch->getBCType(Patch::yplus) == Patch::Neighbor?0:1,
+//		     patch->getBCType(Patch::zplus) == Patch::Neighbor?0:1);
+//      for(NodeIterator iter(l, h);!iter.done(); iter++){
+//	newphi[*iter]=(1./6)*(
+//	  phi[*iter+IntVector(1,0,0)]+phi[*iter+IntVector(-1,0,0)]+
+//	  phi[*iter+IntVector(0,1,0)]+phi[*iter+IntVector(0,-1,0)]+
+//	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)]);
+//	double diff = newphi[*iter]-phi[*iter];
+//	residual += diff*diff;
+//      }
+//      new_dw->put(sum_vartype(residual), residual_label);
+//    }
+//  }
+//template <class T>
+//void compute_Mag_gradient( constCCVariable<T>& q_CC,
+//                           CCVariable<T>& mag_grad_q_CC,
+//                           const Patch* patch)
+//{
+//  Vector dx = patch->dCell();
+//  for(CellIterator iter = patch->getCellIterator();!iter.done();iter++){
+//    IntVector c = *iter;
+//    Vector grad_q_CC;
+//
+//    for(int dir = 0; dir <3; dir ++ ) {
+//      IntVector r = c;
+//      IntVector l = c;
+//      T inv_dx = (T) 0.5 /dx[dir];
+//      r[dir] += 1;
+//      l[dir] -= 1;
+//      grad_q_CC[dir] = (q_CC[r] - q_CC[l])*inv_dx;
+//    }
+//    mag_grad_q_CC[c] = grad_q_CC.length();
+//  }
+  //old_dw->get
   //Interpolate Particles To Grid (from AMRMPM)
 //      //double pSp_vol = 1./mpm_matl->getInitialDensity();
 //      for (ParticleSubset::iterator iter = pset->begin();iter != pset->end(); iter++){
@@ -331,6 +441,9 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
   task->requires(Task::OldDW, phi_label, Ghost::AroundNodes, 1);
   task->computes(phi_label);
   task->computes(residual_label);
+  
+
+  
   subsched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
   
   // Compile the scheduler
@@ -356,18 +469,31 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
   } while(residual > poisson_maxresidual_);
   
   new_dw->transferFrom(subsched->get_dw(1), phi_label, patches, matls);
+  //old_dw->transferFrom(subsched->get_dw(1), phi_label, patches, matls);
+  
+  //SchedulerP gradient_subsched = sched->createSubScheduler();
+  //gradient_subsched->initialize();
+  //gradient_subsched->addTask(gradient_task, level->eachPatch(), sharedState_->allMaterials());
+  //// Compile the scheduler
+  //gradient_subsched->advanceDataWarehouse(grid);
+  //gradient_subsched->compile();
+  //gradient_subsched->get_dw(1)->transferFrom(old_dw, phi_label, patches, matls);
+  //gradient_subsched->advanceDataWarehouse(grid);
+  //gradient_subsched->get_dw(0)->setScrubbing(DataWarehouse::ScrubComplete);
+  //gradient_subsched->get_dw(1)->setScrubbing(DataWarehouse::ScrubNonPermanent);
+  //gradient_subsched->execute();
+  //new_dw->transferFrom(gradient_subsched->get_dw(1), FX_label, patches, matls);
+  //new_dw->transferFrom(gradient_subsched->get_dw(1), FY_label, patches, matls);
+  //new_dw->transferFrom(gradient_subsched->get_dw(1), FZ_label, patches, matls);
   
   // Now Poisson has been calculated, calculate the gradients
-  calculate_potential_gradients(pg,
-                                patches,
-                                matls,
-                                old_dw, new_dw,
-                                level, sched);
+  //calculate_potential_gradients(pg, patches, matls, old_dw, new_dw);
   
   // Advance particles
-  
+
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
+    ParticleInterpolator* interpolator=scinew LinearInterpolator(patch);
     for( int m = 0; m<matls->size(); ++m ){
       int matl = matls->get(m);
       ParticleSubset* pset = old_dw->getParticleSubset(matl, patch);
@@ -400,14 +526,29 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
       
       new_dw->allocateAndPut(pidsnew,  lb_->pParticleIDLabel_preReloc, pset);
 
-      // every timestep, move down the +x axis, and decay the mass a little bit
+      // Update particle position and velocity:
       for( unsigned i = 0; i < pset->numParticles(); ++i ){
-	//Point pos( px[i].x() + pv[i].x(), px[i].y() + pv[i].y(), px[i].z() + pv[i].z());
+//        particleIndex idx = i;
+//        // Calculate gradient of potential:
+//        {
+//          Vector dx = patch->dCell();
+//          double oodx[3] = {1./dx.x(), 1./dx.y(), 1./dx.z()};
+//          vector<IntVector> ni(interpolator->size());
+//          vector<double> S(interpolator->size());
+//          vector<Vector> d_S(interpolator->size());
+//          // Define gradient
+//          Matrix3 gradient_of_potential(0.0);
+//          // Get nodes
+//          vector<IntVector> node_indices; 
+//          interpolator->findCellAndShapeDerivatives(px[idx], node_indices, d_S, psize[idx], pFOld[idx]);
+//        }
+        
+        //Point pos( px[i].x() + pv[i].x(), px[i].y() + pv[i].y(), px[i].z() + pv[i].z());
         Point pos( px[i].x() + pv[0][i], px[i].y() + pv[1][i], px[i].z() + pv[2][i]);
         pxnew[i] = pos;
         for( int component = 0; component < 3; ++component ) {
-          pvnew[component][i] = pv[component][i]; // velocity does not change
-	}
+          pvnew[component][i] = pv[component][i];
+        }
         pidsnew[i] = pids[i];
         pmassnew[i] = pmass[i];
         if (doOutput_)
@@ -417,6 +558,7 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
       }
       new_dw->deleteParticles(delset);
     }
+    delete interpolator;
   }
 }
 

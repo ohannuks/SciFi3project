@@ -101,8 +101,7 @@ WARNING
     void calculate_potential_gradients(const ProcessorGroup* pg,
                                        const PatchSubset* patches,
                                        const MaterialSubset* matls,
-                                       DataWarehouse* old_dw, DataWarehouse* new_dw,
-                                       LevelP level, Scheduler* sched);
+                                       DataWarehouse* old_dw, DataWarehouse* new_dw);
 
     const VarLabel* phi_label;
     const VarLabel* FX_label;
