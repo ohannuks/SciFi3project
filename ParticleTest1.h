@@ -93,6 +93,13 @@ WARNING
 		     const MaterialSubset* matls,
 		     DataWarehouse* old_dw, DataWarehouse* new_dw,
 		     LevelP, Scheduler*);
+    
+    void particleAdvance( const ProcessorGroup*,
+                          const PatchSubset* patches,
+                          const MaterialSubset* matls,
+                          DataWarehouse* old_dw, DataWarehouse* new_dw,
+                          LevelP, Scheduler*);
+    
     void poisson_solver(const ProcessorGroup*,
 		 const PatchSubset* patches,
 		 const MaterialSubset* matls,
