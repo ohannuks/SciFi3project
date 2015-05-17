@@ -10,7 +10,7 @@
    <SimulationComponent type="particletest" />
 
    <Time>
-       <maxTime>1000.0</maxTime>
+       <maxTime>200.0</maxTime>
        <initTime>0.0</initTime>
        <delt_min>1</delt_min>
        <delt_max>1</delt_max>
