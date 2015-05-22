@@ -100,6 +100,14 @@ WARNING
                           DataWarehouse* old_dw, DataWarehouse* new_dw,
                           LevelP, Scheduler*);
     
+    void particle_interpolate_to_grid(
+                          const ProcessorGroup*,
+                          const PatchSubset* patches,
+                          const MaterialSubset* matls,
+                          DataWarehouse* old_dw, DataWarehouse* new_dw,
+                          LevelP, Scheduler*
+                                     );
+    
     void poisson_solver(const ProcessorGroup*,
 		 const PatchSubset* patches,
 		 const MaterialSubset* matls,
@@ -111,6 +119,7 @@ WARNING
                                        DataWarehouse* old_dw, DataWarehouse* new_dw);
 
     const VarLabel* phi_label;
+    const VarLabel* rho_label;
     const VarLabel* FX_label;
     const VarLabel* FY_label;
     const VarLabel* FZ_label;
