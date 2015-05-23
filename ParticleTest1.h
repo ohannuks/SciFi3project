@@ -66,16 +66,21 @@ WARNING
 
   class ParticleTest1 : public UintahParallelComponent, public SimulationInterface {
   public:
+    
     ParticleTest1(const ProcessorGroup* myworld);
+    
     virtual ~ParticleTest1();
 
     virtual void problemSetup(const ProblemSpecP& params, 
                               const ProblemSpecP& restart_prob_spec, 
                               GridP& grid, SimulationStateP&);
+    
     virtual void scheduleInitialize(const LevelP& level,
 				    SchedulerP& sched);
+    
     virtual void scheduleComputeStableTimestep(const LevelP& level,
 					       SchedulerP&);
+    
     virtual void scheduleTimeAdvance( const LevelP& level, 
 				      SchedulerP&);
 
@@ -99,6 +104,9 @@ WARNING
                           const MaterialSubset* matls,
                           DataWarehouse* old_dw, DataWarehouse* new_dw,
                           LevelP, Scheduler*);
+    
+    void schedule_interpolate_to_grid( const LevelP& level, 
+                                       SchedulerP& sched);
     
     void particle_interpolate_to_grid(
                           const ProcessorGroup*,

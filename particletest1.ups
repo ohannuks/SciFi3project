@@ -26,6 +26,7 @@
        <save label = "p.vz"/>
        <save label = "p.particleID"/>
        <save label = "phi"/>
+       <save label = "rho"/>
        <save label = "F_x"/>
        <save label = "F_y"/>
        <save label = "F_z"/>
@@ -50,7 +51,7 @@
        <BoundaryConditions>
          <Face side = "x-">
            <BCType id = "0"   label = "Phi"     var = "Dirichlet"> 
-             <value> 1. </value> 
+             <value> 0. </value> 
            </BCType> 
          </Face>
          <Face side = "x+">

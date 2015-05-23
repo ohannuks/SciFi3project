@@ -114,6 +114,7 @@ void ParticleTest1::scheduleInitialize(const LevelP& level,
   task->computes(lb_->pMassLabel);
   task->computes(lb_->pParticleIDLabel);
   task->computes(phi_label);
+  task->computes(rho_label);
   task->computes(FX_label);
   task->computes(FY_label);
   task->computes(FZ_label);
@@ -141,18 +142,19 @@ ParticleTest1::scheduleTimeAdvance( const LevelP& level, SchedulerP& sched)
 
   
   // Calculate rho from particle positions:
-  Task * interpolate_particles_to_grid_task = scinew Task("interpolateToGrid", this, &ParticleTest1::particle_interpolate_to_grid, level, sched.get_rep());
-  interpolate_particles_to_grid_task->requires(Task::OldDW, lb_->pXLabel, Ghost::None, 0);
-  interpolate_particles_to_grid_task->requires(Task::OldDW, lb_->pMassLabel, Ghost::None, 0);
-  interpolate_particles_to_grid_task->computes(rho_label);
-  sched->addTask(interpolate_particles_to_grid_task, perproc_patches, sharedState_->allMaterials());
-  
+  Task * t = scinew Task("interpolateToGrid", this, &ParticleTest1::particle_interpolate_to_grid, level, sched.get_rep());
+  //Ghost::GhostType  gan = Ghost::AroundNodes;
+  t->requires( Task::OldDW, lb_->pXLabel,                Ghost::AroundNodes, 1 );
+  t->requires( Task::OldDW, lb_->pMassLabel,             Ghost::AroundNodes, 1 );
+  t->computes( rho_label );
+  sched->addTask(t, perproc_patches, sharedState_->allMaterials() );
   
   // Poisson stuff:
   Task* task = scinew Task("timeAdvance", this, &ParticleTest1::timeAdvance, level, sched.get_rep());
   task->hasSubScheduler();
   task->requires(Task::OldDW, phi_label, Ghost::AroundNodes, 1);
-  task->requires(Task::NewDW, rho_label, Ghost::None, 0);
+  //task->requires(Task::NewDW, rho_label, Ghost::AroundNodes, 1);
+  //task->requires(Task::OldDW, rho_label, Ghost::AroundNodes, 1);
   task->computes(phi_label);
 
   sched->addTask(task, perproc_patches, sharedState_->allMaterials());
@@ -268,11 +270,13 @@ void ParticleTest1::initialize(const ProcessorGroup*,
 	//const Point vel( 0.25, 0.0, 0.0 );
 	//pv[i] = vel;
         px[i] = pos;
-        pv[0][i] = 0.25;
+        //pv[0][i] = 0.25;
+	pv[0][i] = 0;
         pv[1][i] = 0;
         pv[2][i] = 0;
         pids[i] = patch->getID()*numParticles+i;
-        pmass[i] = ((float) rand()) / RAND_MAX * 10;
+        //pmass[i] = ((float) rand()) / RAND_MAX * 10;
+	pmass[i] = 1;
       }
     }
   }
@@ -282,7 +286,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
     const Patch* patch = patches->get(p);
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
-      NCVariable<double> phi;
+      NCVariable<double> phi, rho;
       NCVariable<double> F_x;
       NCVariable<double> F_y;
       NCVariable<double> F_z;
@@ -290,10 +294,12 @@ void ParticleTest1::initialize(const ProcessorGroup*,
       new_dw->allocateAndPut(F_y, FY_label, matl, patch);
       new_dw->allocateAndPut(F_z, FZ_label, matl, patch);
       new_dw->allocateAndPut(phi, phi_label, matl, patch);
+      new_dw->allocateAndPut(rho, rho_label, matl, patch);
       phi.initialize(0);
       F_x.initialize(0);
       F_y.initialize(0);
       F_z.initialize(0);
+      rho.initialize(0);
 
       for (Patch::FaceType face = Patch::startFace; face <= Patch::endFace;
            face=Patch::nextFace(face)) {
@@ -457,23 +463,46 @@ inline void compute_gradient(Vector & grad,
   }
 }
 
-void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*, const PatchSubset* patches, const MaterialSubset* matls, DataWarehouse* old_dw, DataWarehouse* new_dw, LevelP, Scheduler* )
+void ParticleTest1::schedule_interpolate_to_grid ( const LevelP& level, SchedulerP& sched )
 {
+  LoadBalancer* lb = sched->getLoadBalancer();
+  const PatchSet* perproc_patches = lb->getPerProcessorPatchSet(level);
+  
+  // Calculate rho from particle positions:
+  Task * t = scinew Task("interpolateToGrid", this, &ParticleTest1::particle_interpolate_to_grid, level, sched.get_rep());
+  //Ghost::GhostType  gan = Ghost::AroundNodes;
+  t->requires( Task::OldDW, lb_->pXLabel,                Ghost::AroundNodes, 1 );
+  t->requires( Task::OldDW, lb_->pMassLabel,             Ghost::AroundNodes, 1 );
+  t->computes( rho_label );
+  sched->addTask(t, perproc_patches, sharedState_->allMaterials() );
+}
+
+
+void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*, 
+                                                   const PatchSubset* patches, 
+                                                   const MaterialSubset* matls, 
+                                                   DataWarehouse* old_dw, 
+                                                   DataWarehouse* new_dw, 
+                                                   LevelP, 
+                                                   Scheduler* ) {
   // Interpolate particles:
   for( int p = 0; p < patches->size(); ++p ) {
     const Patch * patch = patches->get(p);
-    ParticleInterpolator* interpolator=scinew LinearInterpolator(patch);
+    ParticleInterpolator* interpolator = scinew LinearInterpolator(patch);
     for( int m = 0; m < matls->size(); ++m ) {   
       int matl = matls->get(m);
       
       NCVariable<double> rho_new;
       //new_dw->allocateAndPut( rho_new, rho_label, matl, patch);
       const int number_of_ghost_cells = 1;
-      new_dw->allocateAndPut( rho_new, rho_label, matl, patch, Ghost::AroundCells, number_of_ghost_cells );
+      new_dw->allocateAndPut( rho_new, rho_label, matl, patch, Ghost::AroundNodes, number_of_ghost_cells );
+      //new_dw->allocateAndPut( rho_new, rho_label, matl, patch );
       rho_new.initialize(0);
       
-      ParticleSubset * pset = old_dw->getParticleSubset(matl, patch);
-      //ParticleSubset * delset = scinew ParticleSubset(0, matl, patch);
+     ParticleSubset * pset = old_dw->getParticleSubset(matl, patch, 
+                                                        Ghost::AroundNodes, 
+                                                        number_of_ghost_cells, 
+                                                        lb_->pXLabel);
       
       // Get the arrays of particle values to be changed
       constParticleVariable<Point> px;
@@ -496,7 +525,9 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*, const 
           const int number_of_nodes = 8;
           for( int k = 0; k < number_of_nodes; ++k ) {
             IntVector node = ni[k]; // Get the node
-            rho_new[node]  = pmass[idx] * S[k];
+            if(patch->containsNode(node)) {
+              rho_new[node]  = pmass[idx] * S[k];
+            }
           }
         }
         
@@ -566,7 +597,7 @@ void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* 
         }
  
         for( int component = 0; component < 3; ++component ) {
-          const double dt = 10;
+          const double dt = 0.01;
           const double acceleration = -1 * potential_gradient[component] / (double)(pmass[idx]);
           pvnew[component][idx] = pv[component][idx] + acceleration * dt;
         }
@@ -598,39 +629,52 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
   subsched->initialize();
   GridP grid = level->getGrid();
 
-  for(int p=0;p<patches->size();p++){
-    const Patch* patch = patches->get(p);
-    for(int m = 0;m<matls->size();m++){
-      int matl = matls->get(m);
-      constNCVariable<double> rho;
-      new_dw->get( rho , rho_label, matl, patch, Ghost::None, 0 );
-    }
-  }
+  //for(int p=0;p<patches->size();p++){
+  //  const Patch* patch = patches->get(p);
+  //  for(int m = 0;m<matls->size();m++){
+  //    int matl = matls->get(m);
+  //    constNCVariable<double> rho;
+  //    new_dw->get( rho , rho_label, matl, patch, Ghost::None, 0 );
+  //  }
+  //}
+  //cout << __LINE__ << endl;
   
   // Create the tasks
   Task* task = scinew Task("solve_poisson",
 			   this, &ParticleTest1::poisson_solver);
   task->requires(Task::OldDW, phi_label, Ghost::AroundNodes, 1);
-  //task->requires(Task::NewDW, rho_label, Ghost::None, 0);
+  task->requires(Task::OldDW, rho_label, Ghost::None, 0);
+  task->computes(rho_label);
   task->computes(phi_label);
   task->computes(residual_label);
+  //cout << __LINE__ << endl;
   
   subsched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
+
   
   // Compile the scheduler
   subsched->advanceDataWarehouse(grid);
   subsched->compile();
-  
+
   int count = 0;
   double residual;
+  //cout << __LINE__ << endl;
+  assert(subsched->isNewDW(1) );
+  subsched->get_dw(1)->transferFrom(new_dw, rho_label, patches, matls );
   subsched->get_dw(1)->transferFrom(old_dw, phi_label, patches, matls);
-  //subsched->get_dw(2)->transferFrom(new_dw, rho_label, patches, matls);
+  //cout << __LINE__ << endl;
+  
+  //subsched->get_dw(1)->transferFrom(old_dw, rho_label, patches, matls);
+  //cout << __LINE__ << endl;
+  //subsched->get_dw(1)->transferFrom(new_dw, rho_label, patches, matls);
   // Loop poisson iterations
   do {
+    //cout << __LINE__ << endl;
     subsched->advanceDataWarehouse(grid);
     subsched->get_dw(0)->setScrubbing(DataWarehouse::ScrubComplete);
     subsched->get_dw(1)->setScrubbing(DataWarehouse::ScrubNonPermanent);
     subsched->execute();
+    //cout << __LINE__ << endl;
   
     sum_vartype residual_var;
     subsched->get_dw(1)->get(residual_var, residual_label);
@@ -656,8 +700,14 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
       constNCVariable<double> phi;
-      //constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 6.67e-11;
-      //new_dw->get(rho, rho_label, matl, patch, Ghost::None, 0);
+      constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 1; //const double G = 6.67e-11;
+      old_dw->get(rho, rho_label, matl, patch, Ghost::None, 0);
+      // Copy data because.
+      {
+        NCVariable<double> rho_new;
+        new_dw->allocateAndPut(rho_new, rho_label, matl, patch, Ghost::None, 0);
+        rho_new.copyData(rho);
+      }
       old_dw->get(phi, phi_label, matl, patch, Ghost::AroundNodes, 1);
       NCVariable<double> newphi;
       new_dw->allocateAndPut(newphi, phi_label, matl, patch);
@@ -675,7 +725,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
 	newphi[*iter]=(1./6)*(
 	  phi[*iter+IntVector(1,0,0)]+phi[*iter+IntVector(-1,0,0)]+
 	  phi[*iter+IntVector(0,1,0)]+phi[*iter+IntVector(0,-1,0)]+
-	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)]);// - 4.0*pi*G*rho[*iter]);
+	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)] - 4.0*pi*G*rho[*iter]);
 	double diff = newphi[*iter]-phi[*iter];
 	residual += diff*diff;
       }
