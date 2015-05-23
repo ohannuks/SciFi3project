@@ -44,6 +44,11 @@
 #include <Core/Grid/BoundaryConditions/BoundCond.h>
 #include <Core/Grid/ParticleInterpolator.h>
 #include <Core/Grid/LinearInterpolator.h>
+//AMR
+#include <Core/Grid/Variables/PerPatch.h>
+#include <Core/Grid/Variables/CCVariable.h>
+#include <Core/Grid/Variables/PerPatch.h>
+#include <CCA/Components/Regridder/PerPatchVars.h>
 
 
 #include <iostream>
@@ -246,7 +251,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
     const Point high = patch->cellPosition(patch->getCellHighIndex());
     for(int m = 0;m<matls->size();m++){
       srand(1);
-      const int numParticles = 10;
+      const int numParticles = 1000;
       const int matl = matls->get(m);
 
       ParticleVariable<Point> px;
@@ -732,4 +737,112 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
       new_dw->put(sum_vartype(residual), residual_label);
     }
   }
+}
+
+
+void ParticleTest1::scheduleErrorEstimate ( const LevelP& coarseLevel, SchedulerP& sched )
+{
+  Task* task = scinew Task("ParticleTest1::errorEstimate", this, 
+                           &ParticleTest1::errorEstimate);
+
+  const int number_of_ghost_nodes = 0;
+  task->requires(Task::NewDW, phi_label, Ghost::None, number_of_ghost_nodes);
+  task->modifies(sharedState_->get_refineFlag_label(),      sharedState_->refineFlagMaterials());
+  task->modifies(sharedState_->get_refinePatchFlag_label(), sharedState_->refineFlagMaterials());
+  sched->addTask(task, coarseLevel->eachPatch(), sharedState_->allMaterials());
+}
+
+
+void ParticleTest1::errorEstimate(const ProcessorGroup*,
+                            const PatchSubset* patches,
+                            const MaterialSubset* matls,
+                            DataWarehouse*, DataWarehouse* new_dw)
+{
+
+  for(int p=0;p<patches->size();p++){
+    ParticleInterpolator* interpolator = scinew LinearInterpolator(patch);
+    const Patch* patch = patches->get(p);
+    CCVariable<int> refineFlag;
+    PerPatch<PatchFlagP> refinePatchFlag;
+    
+    const int matlindex_zero = 0;
+    new_dw->getModifiable(refineFlag, sharedState_->get_refineFlag_label(),
+                          matlindex_zero, patch);
+    new_dw->get(refinePatchFlag, sharedState_->get_refinePatchFlag_label(),
+                matlindex_zero, patch);
+
+    PatchFlag* refinePatch = refinePatchFlag.get().get_rep();
+
+    for(int m = 0;m<matls->size();m++){
+      int matl = matls->get(m);
+
+      constNCVariable<double> phi;
+      const int ghostnodes = 0;
+      new_dw->get(phi, phi_label, matl, patch, Ghost::None, ghostnodes);
+
+      Vector dx = patch->dCell();
+      //double thresh = refine_threshold/(dx.x()*dx.y()*dx.z());
+      //double sumdx2 = -2 / (dx.x()*dx.x()) -2/(dx.y()*dx.y()) - 2/(dx.z()*dx.z());
+      //Vector inv_dx2(1./(dx.x()*dx.x()), 1./(dx.y()*dx.y()), 1./(dx.z()*dx.z()));
+      int numFlag = 0;
+      for(CellIterator iter = patch->getCellIterator(); !iter.done(); iter++){
+        const IntVector& idx = *iter;
+
+        IntVector low = patch->getCellLowIndex();
+        IntVector high = patch->getCellHighIndex();
+
+        Point cell_position = patch->getCellPosition(idx);
+
+        // Compute gradient
+        Vector gradient;
+        {
+          Vector dx = patch->dCell();
+          double oodx[3] = {1./dx.x(), 1./dx.y(), 1./dx.z()};
+          vector<IntVector> ni(interpolator->size());
+
+          // Compute the gradient another way:
+          const Matrix3 size(0), defgrad(0);
+          vector<Vector> d_S(interpolator->size());
+          interpolator->findCellAndShapeDerivatives(cell_position, ni, d_S, size, defgrad);
+          compute_gradient(gradient,
+                           ni,
+                           d_S,
+                           oodx, 
+                           phi);
+        }
+
+        const double threshold = 1;
+        if( gradient > threshold ){
+          numFlag++;
+          refineFlag[c] = true;
+        }
+      }
+      // cerr << "numFlag=" << numFlag << '\n';
+      if(numFlag != 0)
+        refinePatch->set();
+    }
+    
+    
+  }
+}
+
+void ParticleTest1::scheduleInitialErrorEstimate ( const LevelP& coarseLevel, SchedulerP& sched )
+{
+  scheduleErrorEstimate(coarseLevel, sched);
+}
+
+
+void ParticleTest1::scheduleCoarsen ( const LevelP& coarseLevel, SchedulerP& sched )
+{
+  Uintah::SimulationInterface::scheduleCoarsen ( coarseLevel, sched );
+}
+
+void ParticleTest1::scheduleRefine ( const PatchSet* patches, SchedulerP& scheduler )
+{
+  Uintah::SimulationInterface::scheduleRefine ( patches, scheduler );
+}
+
+void ParticleTest1::scheduleRefineInterface ( const LevelP& fineLevel, SchedulerP& scheduler, bool needCoarse, bool needFine )
+{
+  Uintah::SimulationInterface::scheduleRefineInterface ( fineLevel, scheduler, needCoarse, needFine );
 }

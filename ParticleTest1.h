@@ -83,6 +83,25 @@ WARNING
     
     virtual void scheduleTimeAdvance( const LevelP& level, 
 				      SchedulerP&);
+    
+    //AMR
+    ////////////////////////
+    virtual void scheduleRefine(const PatchSet* patches, 
+                                SchedulerP& scheduler);
+    
+    virtual void scheduleRefineInterface(const LevelP& fineLevel, 
+                                         SchedulerP& scheduler,
+                                         bool needCoarse, 
+                                         bool needFine);
+    
+    virtual void scheduleCoarsen(const LevelP& coarseLevel, SchedulerP& sched);
+    
+    /// Schedule to mark flags for AMR regridding
+    virtual void scheduleErrorEstimate(const LevelP& coarseLevel, 
+                                       SchedulerP& sched);
+    
+    virtual void scheduleInitialErrorEstimate(const LevelP& coarseLevel, SchedulerP& sched);
+    ////////////////////////
 
   private:
     void initialize(const ProcessorGroup*,
@@ -93,6 +112,12 @@ WARNING
 			       const MaterialSubset* matls,
 			       DataWarehouse* old_dw, DataWarehouse* new_dw);
 
+    void errorEstimate(const ProcessorGroup*,
+                      const PatchSubset* patches,
+                      const MaterialSubset* /*matls*/,
+                      DataWarehouse*,
+                      DataWarehouse* new_dw);
+    
     void timeAdvance(const ProcessorGroup*,
 		     const PatchSubset* patches,
 		     const MaterialSubset* matls,
