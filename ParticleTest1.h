@@ -120,6 +120,14 @@ WARNING
 		 const PatchSubset* patches,
 		 const MaterialSubset* matls,
 		 DataWarehouse* old_dw, DataWarehouse* new_dw);
+    
+    void poisson_next_guess(
+                          const ProcessorGroup*,
+                          const PatchSubset* patches,
+                          const MaterialSubset* matls,
+                          DataWarehouse* old_dw, DataWarehouse* new_dw,
+                          LevelP, Scheduler*
+                                     );
 
     void calculate_potential_gradients(const ProcessorGroup* pg,
                                        const PatchSubset* patches,
