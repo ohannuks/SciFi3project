@@ -28,9 +28,6 @@
        <save label = "p.particleID"/>
        <save label = "phi"/>
        <save label = "rho"/>
-       <save label = "F_x"/>
-       <save label = "F_y"/>
-       <save label = "F_z"/>
        <save label="refineFlag"/>
        <checkpoint cycle = "2" interval = "1"/>
    </DataArchiver>
