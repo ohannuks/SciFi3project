@@ -822,7 +822,7 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
                            rho);
         }
 
-        const double threshold = 1;
+        const double threshold = 0.001;
         if( sqrt( gradient[0] * gradient[0] + gradient[1]*gradient[1] +gradient[2]* gradient[2] ) > threshold ){
           numFlag++;
           refineFlag[idx] = true;
