@@ -245,13 +245,14 @@ void ParticleTest1::initialize(const ProcessorGroup*,
 			  const MaterialSubset* matls,
 			  DataWarehouse* /*old_dw*/, DataWarehouse* new_dw)
 {
+  const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
     const Point low = patch->cellPosition(patch->getCellLowIndex());
     const Point high = patch->cellPosition(patch->getCellHighIndex());
     for(int m = 0;m<matls->size();m++){
       srand(1);
-      const int numParticles = 1000;
+      const int numParticles = 10;
       const int matl = matls->get(m);
 
       ParticleVariable<Point> px;
@@ -285,6 +286,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
       }
     }
   }
+
   
   // Poisson solver stuff:
   for(int p=0;p<patches->size();p++){
@@ -331,6 +333,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
       }    
     }
   }
+
 }
 
 void ParticleTest1::calculate_potential_gradients(const ProcessorGroup* pg,
@@ -448,6 +451,7 @@ void ParticleTest1::calculate_potential_gradients(const ProcessorGroup* pg,
 //          }
 //        }
 //      }  // End of particle loop
+
 }
 
 /*! Calculate gradient of a scalar field for 8 noded interpolation */
@@ -490,6 +494,7 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
                                                    DataWarehouse* new_dw, 
                                                    LevelP, 
                                                    Scheduler* ) {
+
   // Interpolate particles:
   for( int p = 0; p < patches->size(); ++p ) {
     const Patch * patch = patches->get(p);
@@ -541,10 +546,12 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
     }
     delete interpolator;
   }
+
 }
 
 void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* patches, const MaterialSubset* matls, DataWarehouse* old_dw, DataWarehouse* new_dw, LevelP, Scheduler* )
 {
+
   // Advance particles
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
@@ -621,6 +628,7 @@ void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* 
     }
     delete interpolator;
   }
+
 }
 
 
@@ -630,6 +638,7 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
 			   DataWarehouse* old_dw, DataWarehouse* new_dw,
 			   LevelP level, Scheduler* sched)
 {
+
   SchedulerP subsched = sched->createSubScheduler();
   subsched->initialize();
   GridP grid = level->getGrid();
@@ -700,6 +709,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
 		       const MaterialSubset* matls,
 		       DataWarehouse* old_dw, DataWarehouse* new_dw)
 {
+
   for(int p=0;p<patches->size();p++){
     const Patch* patch = patches->get(p);
     for(int m = 0;m<matls->size();m++){
@@ -737,6 +747,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
       new_dw->put(sum_vartype(residual), residual_label);
     }
   }
+
 }
 
 
@@ -745,8 +756,8 @@ void ParticleTest1::scheduleErrorEstimate ( const LevelP& coarseLevel, Scheduler
   Task* task = scinew Task("ParticleTest1::errorEstimate", this, 
                            &ParticleTest1::errorEstimate);
 
-  const int number_of_ghost_nodes = 0;
-  task->requires(Task::NewDW, phi_label, Ghost::None, number_of_ghost_nodes);
+  const int number_of_ghost_nodes = 1;
+  task->requires(Task::NewDW, rho_label, Ghost::AroundNodes, number_of_ghost_nodes);
   task->modifies(sharedState_->get_refineFlag_label(),      sharedState_->refineFlagMaterials());
   task->modifies(sharedState_->get_refinePatchFlag_label(), sharedState_->refineFlagMaterials());
   sched->addTask(task, coarseLevel->eachPatch(), sharedState_->allMaterials());
@@ -760,8 +771,8 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
 {
 
   for(int p=0;p<patches->size();p++){
-    ParticleInterpolator* interpolator = scinew LinearInterpolator(patch);
     const Patch* patch = patches->get(p);
+    ParticleInterpolator* interpolator = scinew LinearInterpolator(patch);
     CCVariable<int> refineFlag;
     PerPatch<PatchFlagP> refinePatchFlag;
     
@@ -776,9 +787,9 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
 
-      constNCVariable<double> phi;
-      const int ghostnodes = 0;
-      new_dw->get(phi, phi_label, matl, patch, Ghost::None, ghostnodes);
+      constNCVariable<double> rho;
+      const int ghostnodes = 1;
+      new_dw->get(rho, rho_label, matl, patch, Ghost::AroundNodes, ghostnodes);
 
       Vector dx = patch->dCell();
       //double thresh = refine_threshold/(dx.x()*dx.y()*dx.z());
@@ -796,9 +807,9 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
         // Compute gradient
         Vector gradient;
         {
-          Vector dx = patch->dCell();
           double oodx[3] = {1./dx.x(), 1./dx.y(), 1./dx.z()};
           vector<IntVector> ni(interpolator->size());
+          Vector dx = patch->dCell();
 
           // Compute the gradient another way:
           const Matrix3 size(0), defgrad(0);
@@ -808,13 +819,13 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
                            ni,
                            d_S,
                            oodx, 
-                           phi);
+                           rho);
         }
 
         const double threshold = 1;
-        if( gradient > threshold ){
+        if( sqrt( gradient[0] * gradient[0] + gradient[1]*gradient[1] +gradient[2]* gradient[2] ) > threshold ){
           numFlag++;
-          refineFlag[c] = true;
+          refineFlag[idx] = true;
         }
       }
       // cerr << "numFlag=" << numFlag << '\n';
@@ -824,6 +835,7 @@ void ParticleTest1::errorEstimate(const ProcessorGroup*,
     
     
   }
+
 }
 
 void ParticleTest1::scheduleInitialErrorEstimate ( const LevelP& coarseLevel, SchedulerP& sched )
