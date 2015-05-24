@@ -69,12 +69,7 @@ ParticleTest1::ParticleTest1(const ProcessorGroup* myworld)
   residual_label = VarLabel::create("residual", 
                                     sum_vartype::getTypeDescription());
   
-  // Create face-centered variables
-  FX_label = VarLabel::create("F_x", NCVariable<double>::getTypeDescription());
-  
-  FY_label = VarLabel::create("F_y", NCVariable<double>::getTypeDescription());
-  
-  FZ_label = VarLabel::create("F_z", NCVariable<double>::getTypeDescription());
+
   
   lb_ = scinew ExamplesLabel();
 }
@@ -84,9 +79,7 @@ ParticleTest1::~ParticleTest1()
   VarLabel::destroy(phi_label);
   VarLabel::destroy(rho_label);
   VarLabel::destroy(residual_label);
-  VarLabel::destroy(FX_label);
-  VarLabel::destroy(FY_label);
-  VarLabel::destroy(FZ_label);
+
   delete lb_;
 }
 
@@ -120,9 +113,7 @@ void ParticleTest1::scheduleInitialize(const LevelP& level,
   task->computes(lb_->pParticleIDLabel);
   task->computes(phi_label);
   task->computes(rho_label);
-  task->computes(FX_label);
-  task->computes(FY_label);
-  task->computes(FZ_label);
+
   sched->addTask(task, level->eachPatch(), sharedState_->allMaterials());
 }
  
@@ -164,15 +155,7 @@ ParticleTest1::scheduleTimeAdvance( const LevelP& level, SchedulerP& sched)
 
   sched->addTask(task, perproc_patches, sharedState_->allMaterials());
   
-  // Gradient
-  //// Calculate gradient:
-  Task* gradient_task = scinew Task("calculate_gradient", this, &ParticleTest1::calculate_potential_gradients);
-  gradient_task->requires(Task::NewDW, phi_label, Ghost::AroundNodes, 1);
-  gradient_task->computes(FX_label);
-  gradient_task->computes(FY_label);
-  gradient_task->computes(FZ_label);
-  sched->addTask(gradient_task, perproc_patches, sharedState_->allMaterials());
-  
+
   Task* particle_task = scinew Task("particleAdvance",
 			   this, &ParticleTest1::particleAdvance, level, sched.get_rep());
 
@@ -237,6 +220,7 @@ void ParticleTest1::computeStableTimestep(const ProcessorGroup* /*pg*/,
 				     DataWarehouse*,
 				     DataWarehouse* new_dw)
 {
+  const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   new_dw->put(delt_vartype(1), sharedState_->get_delt_label(),getLevel(patches));
 }
 
@@ -294,18 +278,10 @@ void ParticleTest1::initialize(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
       NCVariable<double> phi, rho;
-      NCVariable<double> F_x;
-      NCVariable<double> F_y;
-      NCVariable<double> F_z;
-      new_dw->allocateAndPut(F_x, FX_label, matl, patch);
-      new_dw->allocateAndPut(F_y, FY_label, matl, patch);
-      new_dw->allocateAndPut(F_z, FZ_label, matl, patch);
+
       new_dw->allocateAndPut(phi, phi_label, matl, patch);
       new_dw->allocateAndPut(rho, rho_label, matl, patch);
       phi.initialize(0);
-      F_x.initialize(0);
-      F_y.initialize(0);
-      F_z.initialize(0);
       rho.initialize(0);
 
       for (Patch::FaceType face = Patch::startFace; face <= Patch::endFace;
@@ -336,123 +312,6 @@ void ParticleTest1::initialize(const ProcessorGroup*,
 
 }
 
-void ParticleTest1::calculate_potential_gradients(const ProcessorGroup* pg,
-                                                  const PatchSubset* patches,
-                                                  const MaterialSubset* matls,
-                                                  DataWarehouse* old_dw, DataWarehouse* new_dw) {
-
-  //cout << "hello" << endl;
-  // Poisson solver stuff:
-  for(int p=0;p<patches->size();p++){
-    const Patch* patch = patches->get(p);
-    for(int m = 0;m<matls->size();m++){
-      int matl = matls->get(m);
-
-      constNCVariable<double> phi;
-      NCVariable<double> F_x, F_y, F_z;
-      
-      new_dw->get(phi, phi_label, matl, patch, Ghost::AroundNodes, 1);
-      new_dw->allocateAndPut(F_x, FX_label, matl, patch);
-      new_dw->allocateAndPut(F_y, FY_label, matl, patch);
-      new_dw->allocateAndPut(F_z, FZ_label, matl, patch);
-      F_x.initialize(0);
-      F_y.initialize(0);
-      F_z.initialize(0);
-      
-      // Calculate gradient:
-      Vector dx = patch->dCell();
-      IntVector l = patch->getNodeLowIndex();
-      IntVector h = patch->getNodeHighIndex();
-      
-      l += IntVector(patch->getBCType(Patch::xminus) == Patch::Neighbor?0:1,
-                     patch->getBCType(Patch::yminus) == Patch::Neighbor?0:1,
-                     patch->getBCType(Patch::zminus) == Patch::Neighbor?0:1);
-      h -= IntVector(patch->getBCType(Patch::xplus) == Patch::Neighbor?0:1,
-                     patch->getBCType(Patch::yplus) == Patch::Neighbor?0:1,
-                     patch->getBCType(Patch::zplus) == Patch::Neighbor?0:1);
-
-      for( NodeIterator iter(l,h); !iter.done(); iter++ ) {
-        F_x[*iter] = (phi[*iter+IntVector(1,0,0)] - phi[*iter + IntVector(-1,0,0)]) / (2.0*dx[0]);
-        F_y[*iter] = (phi[*iter+IntVector(0,1,0)] - phi[*iter + IntVector(0,-1,0)]) / (2.0*dx[1]);
-        F_z[*iter] = (phi[*iter+IntVector(0,0,1)] - phi[*iter + IntVector(0,0,-1)]) / (2.0*dx[2]);
-      }
-    }
-  }
-//  for(int p=0;p<patches->size();p++){
-//    const Patch* patch = patches->get(p);
-//    for(int m = 0;m<matls->size();m++){
-//      int matl = matls->get(m);
-//      constNCVariable<double> phi;
-//      old_dw->get(phi, phi_label, matl, patch, Ghost::AroundNodes, 1);
-//      NCVariable<double> newphi;
-//      new_dw->allocateAndPut(newphi, phi_label, matl, patch);
-//      newphi.copyPatch(phi, newphi.getLow(), newphi.getHigh());
-//      double residual=0;
-//      IntVector l = patch->getNodeLowIndex();
-//      IntVector h = patch->getNodeHighIndex();
-//      l += IntVector(patch->getBCType(Patch::xminus) == Patch::Neighbor?0:1,
-//		     patch->getBCType(Patch::yminus) == Patch::Neighbor?0:1,
-//		     patch->getBCType(Patch::zminus) == Patch::Neighbor?0:1);
-//      h -= IntVector(patch->getBCType(Patch::xplus) == Patch::Neighbor?0:1,
-//		     patch->getBCType(Patch::yplus) == Patch::Neighbor?0:1,
-//		     patch->getBCType(Patch::zplus) == Patch::Neighbor?0:1);
-//      for(NodeIterator iter(l, h);!iter.done(); iter++){
-//	newphi[*iter]=(1./6)*(
-//	  phi[*iter+IntVector(1,0,0)]+phi[*iter+IntVector(-1,0,0)]+
-//	  phi[*iter+IntVector(0,1,0)]+phi[*iter+IntVector(0,-1,0)]+
-//	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)]);
-//	double diff = newphi[*iter]-phi[*iter];
-//	residual += diff*diff;
-//      }
-//      new_dw->put(sum_vartype(residual), residual_label);
-//    }
-//  }
-//template <class T>
-//void compute_Mag_gradient( constCCVariable<T>& q_CC,
-//                           CCVariable<T>& mag_grad_q_CC,
-//                           const Patch* patch)
-//{
-//  Vector dx = patch->dCell();
-//  for(CellIterator iter = patch->getCellIterator();!iter.done();iter++){
-//    IntVector c = *iter;
-//    Vector grad_q_CC;
-//
-//    for(int dir = 0; dir <3; dir ++ ) {
-//      IntVector r = c;
-//      IntVector l = c;
-//      T inv_dx = (T) 0.5 /dx[dir];
-//      r[dir] += 1;
-//      l[dir] -= 1;
-//      grad_q_CC[dir] = (q_CC[r] - q_CC[l])*inv_dx;
-//    }
-//    mag_grad_q_CC[c] = grad_q_CC.length();
-//  }
-  //old_dw->get
-  //Interpolate Particles To Grid (from AMRMPM)
-//      //double pSp_vol = 1./mpm_matl->getInitialDensity();
-//      for (ParticleSubset::iterator iter = pset->begin();iter != pset->end(); iter++){
-//        particleIndex idx = *iter;
-//
-//        // Get the node indices that surround the cell
-//        interpolator->findCellAndWeights(px[idx],ni,S,psize[idx],pDeformationMeasure[idx]); //ParticleInterpolator
-//
-//        pmom = pvelocity[idx]*pmass[idx];
-//        
-//        // Add each particles contribution to the local mass & velocity 
-//        IntVector node;
-//        for(int k = 0; k < n8or27; k++) {
-//          node = ni[k];
-//          if(patch->containsNode(node)) {
-//            gmass[node]          += pmass[idx]                     * S[k];
-//            gvelocity[node]      += pmom                           * S[k];
-//            gvolume[node]        += pvolume[idx]                   * S[k];
-//            gexternalforce[node] += pexternalforce[idx]            * S[k];
-//            gTemperature[node]   += pTemperature[idx] * pmass[idx] * S[k];
-//          }
-//        }
-//      }  // End of particle loop
-
-}
 
 /*! Calculate gradient of a scalar field for 8 noded interpolation */
 inline void compute_gradient(Vector & grad,
@@ -474,6 +333,7 @@ inline void compute_gradient(Vector & grad,
 
 void ParticleTest1::schedule_interpolate_to_grid ( const LevelP& level, SchedulerP& sched )
 {
+  //const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   LoadBalancer* lb = sched->getLoadBalancer();
   const PatchSet* perproc_patches = lb->getPerProcessorPatchSet(level);
   
@@ -494,7 +354,7 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
                                                    DataWarehouse* new_dw, 
                                                    LevelP, 
                                                    Scheduler* ) {
-
+  const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   // Interpolate particles:
   for( int p = 0; p < patches->size(); ++p ) {
     const Patch * patch = patches->get(p);
@@ -551,7 +411,7 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
 
 void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* patches, const MaterialSubset* matls, DataWarehouse* old_dw, DataWarehouse* new_dw, LevelP, Scheduler* )
 {
-
+  const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   // Advance particles
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
@@ -638,7 +498,7 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
 			   DataWarehouse* old_dw, DataWarehouse* new_dw,
 			   LevelP level, Scheduler* sched)
 {
-
+  const Level * level_check = getLevel(patches); assert( level_check->getIndex() == 0 );
   SchedulerP subsched = sched->createSubScheduler();
   subsched->initialize();
   GridP grid = level->getGrid();
@@ -709,7 +569,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
 		       const MaterialSubset* matls,
 		       DataWarehouse* old_dw, DataWarehouse* new_dw)
 {
-
+  const Level * level = getLevel(patches); assert( level->getIndex() == 0 );
   for(int p=0;p<patches->size();p++){
     const Patch* patch = patches->get(p);
     for(int m = 0;m<matls->size();m++){
@@ -846,15 +706,89 @@ void ParticleTest1::scheduleInitialErrorEstimate ( const LevelP& coarseLevel, Sc
 
 void ParticleTest1::scheduleCoarsen ( const LevelP& coarseLevel, SchedulerP& sched )
 {
-  Uintah::SimulationInterface::scheduleCoarsen ( coarseLevel, sched );
+  //Uintah::SimulationInterface::scheduleCoarsen ( coarseLevel, sched );
 }
 
 void ParticleTest1::scheduleRefine ( const PatchSet* patches, SchedulerP& scheduler )
 {
-  Uintah::SimulationInterface::scheduleRefine ( patches, scheduler );
+  //const Level* fineLevel = getLevel(patches);
+  //int L_indx = fineLevel->getIndex();
+  //
+  //if(L_indx > 0 ) {
+  //  Task* task = scinew Task("ParticleTest1::refine",this, &ParticleTest1::refine);
+  //
+  //  int number_of_ghost_nodes = 1;
+  //  task->requires(Task::NewDW, rho_label, 0, Task::CoarseLevel, 0, Task::NormalDomain, Ghost::AroundNodes, number_of_ghost_nodes );
+  //  task->requires(Task::NewDW, phi_label, 0, Task::CoarseLevel, 0, Task::NormalDomain, Ghost::AroundNodes, number_of_ghost_nodes );
+  //
+  //  task->computes(rho_label);
+  //  task->computes(phi_label);
+  //  task->computes(residual_label, fineLevel.get_rep());
+  //  
+  //  scheduler->addTask(task, patches, sharedState_->allMaterials());
+  //}
 }
+
+void ParticleTest1::refine ( const ProcessorGroup*, const PatchSubset* finePatches, const MaterialSubset* matls, DataWarehouse*, DataWarehouse* new_dw )
+{
+  if(finePatches->size() == 0) {cout << "BAD FINEPATCHES SIZE!" << endl; exit(1);}
+  const Level* fineLevel = getLevel(finePatches);
+  const Level* coarseLevel = fineLevel->getCoarserLevel().get_rep();
+  
+  IntVector rr(fineLevel->getRefinementRatio());
+  double invRefineRatio = 1./(rr.x()*rr.y()*rr.z());
+  
+  // For all patches
+  for(int p = 0; p < finePatches->size(); p++){
+  
+    const Patch* finePatch = finePatches->get(p);
+    IntVector low = finePatch->getNodeLowIndex();
+    IntVector high = finePatch->getNodeHighIndex();
+    
+    // Find the overlapping regions...
+    Patch::selectType coarsePatches;
+    finePatch->getCoarseLevelPatches(coarsePatches);
+
+    for(int m = 0; m < matls->size(); m++){
+    
+      int matl = matls->get(m);
+      int total_fine = 0;
+      NCVariable<double> finePhi;
+      new_dw->allocateAndPut(finePhi, phi_label, matl, finePatch);
+      
+      // For each coarse patch, compute the overlapped region and interpolate
+      for(int i=0;i<coarsePatches.size();i++){
+        const Patch * coarsePatch = coarsePatches[i];
+        constNCVariable<double> coarsePhi;
+        const int numberOfGhostNodes = 1;
+        new_dw->get(coarsePhi, phi_label, matl, coarsePatch, Ghost::AroundNodes, numberOfGhostNodes );
+        IntVector l = Max(coarseLevel->mapNodeToFiner(coarsePatch->getNodeLowIndex()), finePatch->getNodeLowIndex() );
+        IntVector h = Min(coarseLevel->mapNodeToFiner(coarsePatch->getNodeHighIndex()), finePatch->getNodeHighIndex() );
+        IntVector diff = h-l;
+        
+        total_fine += diff.x()*diff.y()*diff.z();
+        
+        for( NodeIterator iter(l,h); !iter.done(); iter++ ) {
+          //finePhi[*iter] = ;
+        }
+        
+	// For all finegrid nodes
+	// This is pretty inefficient.  It should be changed to loop over
+	// coarse grid nodes instead and then have a small loop inside?
+	// - Steve
+	for(NodeIterator iter(l, h); !iter.done(); iter++){
+	  //finePhi[*iter] = interpolator_.refine(coarsePhi, *iter, Interpolator::Inner);
+	}
+      }
+    }
+    new_dw->put(sum_vartype(-1), residual_label, finePatch->getLevel());
+  }
+
+  return;
+}
+
 
 void ParticleTest1::scheduleRefineInterface ( const LevelP& fineLevel, SchedulerP& scheduler, bool needCoarse, bool needFine )
 {
-  Uintah::SimulationInterface::scheduleRefineInterface ( fineLevel, scheduler, needCoarse, needFine );
+  //Uintah::SimulationInterface::scheduleRefineInterface ( fineLevel, scheduler, needCoarse, needFine );
 }

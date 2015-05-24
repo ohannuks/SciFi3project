@@ -118,6 +118,11 @@ WARNING
                       DataWarehouse*,
                       DataWarehouse* new_dw);
     
+    void refine(const ProcessorGroup*,
+                const PatchSubset* patches,
+                const MaterialSubset* matls,
+                DataWarehouse*, DataWarehouse* new_dw);
+    
     void timeAdvance(const ProcessorGroup*,
 		     const PatchSubset* patches,
 		     const MaterialSubset* matls,
@@ -146,16 +151,8 @@ WARNING
 		 const MaterialSubset* matls,
 		 DataWarehouse* old_dw, DataWarehouse* new_dw);
 
-    void calculate_potential_gradients(const ProcessorGroup* pg,
-                                       const PatchSubset* patches,
-                                       const MaterialSubset* matls,
-                                       DataWarehouse* old_dw, DataWarehouse* new_dw);
-
     const VarLabel* phi_label;
     const VarLabel* rho_label;
-    const VarLabel* FX_label;
-    const VarLabel* FY_label;
-    const VarLabel* FZ_label;
     const VarLabel* residual_label;
     double poisson_delt_;
     double poisson_maxresidual_;
