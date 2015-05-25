@@ -246,7 +246,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
     const Point high = patch->cellPosition(patch->getCellHighIndex());
     for(int m = 0;m<matls->size();m++){
       srand(1);
-      const int numParticles = 10;
+      const int numParticles = 1600;
       const int matl = matls->get(m);
 
       ParticleVariable<Point> px;
