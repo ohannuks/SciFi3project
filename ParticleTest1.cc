@@ -277,7 +277,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
         pv[2][i] = 0;
         pids[i] = patch->getID()*numParticles+i;
         //pmass[i] = ((float) rand()) / RAND_MAX * 10;
-	pmass[i] = 100000000;
+	pmass[i] = 1.0e20;
       }
     }
   }
@@ -541,6 +541,7 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
 
 void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* patches, const MaterialSubset* matls, DataWarehouse* old_dw, DataWarehouse* new_dw, LevelP, Scheduler* )
 {
+
   // Advance particles
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
@@ -682,8 +683,8 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
     subsched->get_dw(1)->get(residual_var, residual_label);
     residual = residual_var;
   
-    //if(pg->myrank() == 0)
-    //  cerr << "Iteration " << count++ << ", residual=" << residual << '\n';
+    if(pg->myrank() == 0)
+      cerr << "Iteration " << count++ << ", residual=" << residual << '\n';
   } while(residual > poisson_maxresidual_);
   
   new_dw->transferFrom(subsched->get_dw(1), phi_label, patches, matls);
@@ -702,7 +703,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
       constNCVariable<double> phi;
-      constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 1; //const double G = 6.67e-11;
+      constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 6.67e-11;
       old_dw->get(rho, rho_label, matl, patch, Ghost::None, 0);
       // Copy data because.
       {
@@ -723,11 +724,12 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
       h -= IntVector(patch->getBCType(Patch::xplus) == Patch::Neighbor?0:1,
 		     patch->getBCType(Patch::yplus) == Patch::Neighbor?0:1,
 		     patch->getBCType(Patch::zplus) == Patch::Neighbor?0:1);
+      Vector dx = patch->dCell();
       for(NodeIterator iter(l, h);!iter.done(); iter++){
 	newphi[*iter]=(1./6)*(
 	  phi[*iter+IntVector(1,0,0)]+phi[*iter+IntVector(-1,0,0)]+
 	  phi[*iter+IntVector(0,1,0)]+phi[*iter+IntVector(0,-1,0)]+
-	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)] - 4.0*pi*G*rho[*iter]);
+	  phi[*iter+IntVector(0,0,1)]+phi[*iter+IntVector(0,0,-1)] - 4.0*pi*G*rho[*iter]/(double)(dx[0]*dx[1]*dx[2]));
 	double diff = newphi[*iter]-phi[*iter];
 	residual += diff*diff;
       }

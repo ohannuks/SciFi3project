@@ -10,10 +10,10 @@
    <SimulationComponent type="particletest" />
 
    <Time>
-       <maxTime>100000.0</maxTime>
+       <maxTime>1.0e60</maxTime>
        <initTime>0.0</initTime>
-       <delt_min>0.1</delt_min>
-       <delt_max>0.1</delt_max>
+       <delt_min>1.0e40</delt_min>
+       <delt_max>1.0e40</delt_max>
        <timestep_multiplier>1</timestep_multiplier>
    </Time>
    <DataArchiver>
@@ -30,7 +30,7 @@
        <save label = "F_x"/>
        <save label = "F_y"/>
        <save label = "F_z"/>
-       <checkpoint cycle = "2" interval = "1"/>
+       <checkpoint cycle = "2" interval = "10"/>
    </DataArchiver>
 
    <LoadBalancer type="DLB">
@@ -40,7 +40,7 @@
 
    <Poisson>
       <delt>0.01</delt>
-      <maxresidual>0.001</maxresidual>
+      <maxresidual>0.000000000000001</maxresidual>
    </Poisson>
 
    <ParticleTest1>
@@ -83,7 +83,7 @@
        <Level>
            <Box label = "1">
               <lower>[0,0,0]</lower>
-              <upper>[500.0,500.0,500.0]</upper>
+              <upper>[1.0e8,1.0e8,1.0e8]</upper>
                <resolution>[20,20,20]</resolution>
               <patches>[2,2,2]</patches>
            </Box>
