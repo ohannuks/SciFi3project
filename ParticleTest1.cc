@@ -242,11 +242,12 @@ void ParticleTest1::initialize(const ProcessorGroup*,
 {
   for( int p=0; p<patches->size(); ++p ){
     const Patch* patch = patches->get(p);
-    const Point low = patch->cellPosition(patch->getCellLowIndex());
-    const Point high = patch->cellPosition(patch->getCellHighIndex());
+    const Point low = patch->nodePosition(patch->getNodeLowIndex());
+    const Point high = patch->nodePosition(patch->getNodeHighIndex());
+    const Vector dx = patch->dCell();
     for(int m = 0;m<matls->size();m++){
       srand(1);
-      const int numParticles = 1600;
+      int numParticles = 1000;
       const int matl = matls->get(m);
 
       ParticleVariable<Point> px;
@@ -264,9 +265,9 @@ void ParticleTest1::initialize(const ProcessorGroup*,
       new_dw->allocateAndPut( pids,  lb_->pParticleIDLabel, subset );
 
       for( int i = 0; i < numParticles; ++i ){
-        const Point pos( (((float) rand()) / RAND_MAX * ( high.x() - low.x()-1) + low.x()),
-                         (((float) rand()) / RAND_MAX * ( high.y() - low.y()-1) + low.y()),
-                         (((float) rand()) / RAND_MAX * ( high.z() - low.z()-1) + low.z()) );
+        const Point pos( (((float) rand()) / RAND_MAX * ( high.x() - low.x()-dx[0]) + low.x()),
+                         (((float) rand()) / RAND_MAX * ( high.y() - low.y()-dx[1]) + low.y()),
+                         (((float) rand()) / RAND_MAX * ( high.z() - low.z()-dx[2]) + low.z()) );
 	//const Point vel( 0.25, 0.0, 0.0 );
 	//pv[i] = vel;
         px[i] = pos;
@@ -276,7 +277,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
         pv[2][i] = 0;
         pids[i] = patch->getID()*numParticles+i;
         //pmass[i] = ((float) rand()) / RAND_MAX * 10;
-	pmass[i] = 1;
+	pmass[i] = 100000000;
       }
     }
   }
@@ -494,8 +495,8 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
       
       NCVariable<double> rho_new;
       //new_dw->allocateAndPut( rho_new, rho_label, matl, patch);
-      const int number_of_ghost_cells = 1;
-      new_dw->allocateAndPut( rho_new, rho_label, matl, patch, Ghost::AroundNodes, number_of_ghost_cells );
+      const int number_of_ghost_cells = 0;
+      new_dw->allocateAndPut( rho_new, rho_label, matl, patch, Ghost::None, number_of_ghost_cells );
       //new_dw->allocateAndPut( rho_new, rho_label, matl, patch );
       rho_new.initialize(0);
       
@@ -526,7 +527,7 @@ void ParticleTest1::particle_interpolate_to_grid ( const ProcessorGroup*,
           for( int k = 0; k < number_of_nodes; ++k ) {
             IntVector node = ni[k]; // Get the node
             if(patch->containsNode(node)) {
-              rho_new[node]  = pmass[idx] * S[k];
+              rho_new[node] += pmass[idx] * S[k];
             }
           }
         }
@@ -597,7 +598,8 @@ void ParticleTest1::particleAdvance ( const ProcessorGroup*, const PatchSubset* 
         }
  
         for( int component = 0; component < 3; ++component ) {
-          const double dt = 0.01;
+          //const double dt = 0.001;
+	  const double dt = sharedState_->d_current_delt;
           const double acceleration = -1 * potential_gradient[component] / (double)(pmass[idx]);
           pvnew[component][idx] = pv[component][idx] + acceleration * dt;
         }
@@ -680,8 +682,8 @@ void ParticleTest1::timeAdvance(const ProcessorGroup* pg,
     subsched->get_dw(1)->get(residual_var, residual_label);
     residual = residual_var;
   
-    if(pg->myrank() == 0)
-      cerr << "Iteration " << count++ << ", residual=" << residual << '\n';
+    //if(pg->myrank() == 0)
+    //  cerr << "Iteration " << count++ << ", residual=" << residual << '\n';
   } while(residual > poisson_maxresidual_);
   
   new_dw->transferFrom(subsched->get_dw(1), phi_label, patches, matls);

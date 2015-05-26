@@ -10,10 +10,10 @@
    <SimulationComponent type="particletest" />
 
    <Time>
-       <maxTime>200.0</maxTime>
+       <maxTime>100000.0</maxTime>
        <initTime>0.0</initTime>
-       <delt_min>1</delt_min>
-       <delt_max>1</delt_max>
+       <delt_min>0.1</delt_min>
+       <delt_max>0.1</delt_max>
        <timestep_multiplier>1</timestep_multiplier>
    </Time>
    <DataArchiver>
@@ -83,8 +83,8 @@
        <Level>
            <Box label = "1">
               <lower>[0,0,0]</lower>
-              <upper>[50.0,50.0,50.0]</upper>
-               <resolution>[50,50,50]</resolution>
+              <upper>[500.0,500.0,500.0]</upper>
+               <resolution>[20,20,20]</resolution>
               <patches>[2,2,2]</patches>
            </Box>
        </Level>
