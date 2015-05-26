@@ -12,8 +12,8 @@
    <Time>
        <maxTime>1.0e60</maxTime>
        <initTime>0.0</initTime>
-       <delt_min>1.0e40</delt_min>
-       <delt_max>1.0e40</delt_max>
+       <delt_min>1.0e13</delt_min>
+       <delt_max>1.0e13</delt_max>
        <timestep_multiplier>1</timestep_multiplier>
    </Time>
    <DataArchiver>
@@ -83,8 +83,8 @@
        <Level>
            <Box label = "1">
               <lower>[0,0,0]</lower>
-              <upper>[1.0e8,1.0e8,1.0e8]</upper>
-               <resolution>[20,20,20]</resolution>
+              <upper>[30000,30000,30000]</upper>
+               <resolution>[50,50,50]</resolution>
               <patches>[2,2,2]</patches>
            </Box>
        </Level>

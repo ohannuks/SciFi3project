@@ -277,7 +277,7 @@ void ParticleTest1::initialize(const ProcessorGroup*,
         pv[2][i] = 0;
         pids[i] = patch->getID()*numParticles+i;
         //pmass[i] = ((float) rand()) / RAND_MAX * 10;
-	pmass[i] = 1.0e20;
+	pmass[i] = 1000.0;
       }
     }
   }
@@ -703,7 +703,7 @@ void ParticleTest1::poisson_solver(const ProcessorGroup*,
     for(int m = 0;m<matls->size();m++){
       int matl = matls->get(m);
       constNCVariable<double> phi;
-      constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 6.67e-11;
+      constNCVariable<double> rho; const double pi = 3.1415926535897932384626; const double G = 4.302e-3;
       old_dw->get(rho, rho_label, matl, patch, Ghost::None, 0);
       // Copy data because.
       {
