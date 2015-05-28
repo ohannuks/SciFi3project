@@ -30,7 +30,7 @@
        <save label = "F_x"/>
        <save label = "F_y"/>
        <save label = "F_z"/>
-       <checkpoint cycle = "2" interval = "10"/>
+       <checkpoint cycle = "2" interval = "100000000000000"/>
    </DataArchiver>
 
    <LoadBalancer type="DLB">
@@ -85,7 +85,7 @@
               <lower>[0,0,0]</lower>
               <upper>[30000,30000,30000]</upper>
                <resolution>[50,50,50]</resolution>
-              <patches>[2,2,2]</patches>
+              <patches>[1,1,1]</patches>
            </Box>
        </Level>
     </Grid>
