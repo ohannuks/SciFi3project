@@ -1,4 +1,4 @@
-\documentclass[notitlepage, 11pt]{article}
+\documentclass[notitlepage, 12pt]{article}
 \usepackage[english]{babel}           % LANGEUAGE=ENGLISH, UTF-8
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -12,10 +12,6 @@
 \usepackage[authoryear,round]{natbib} % REFERENCES
 \usepackage{apalike}
 \usepackage{pdflscape}                % USE LANDSCAPE MODE
-\usepackage{listing}                  % WRITING CODE AND ALGORITHMS
-\usepackage{algpseudocode}            
-%\usepackage{algorithm}  
-%\usepackage{authblk}
 \usetikzlibrary{decorations.pathreplacing}
 
 \renewcommand{\familydefault}{lmr}           % SET DOCUMENT FONT
@@ -43,37 +39,45 @@
         {\it\bfseries\normalsize}}    
 \makeatother
 
-\title{Simulating dark matter in an expanding universe using a parallel multigrid method}
-\author{{\em Otto Hannuksela} \and {\em Janne Lampilahti}}
-\date{\today}
-
+% define algorithm environments
 \floatstyle{plaintop}
 \newfloat{algorithm}{bpht}{alg}
 \floatname{algorithm}{Algortihm}
 
+%define title matter
+\title{Simulating a dark matter halo using a parallel grid method}
+\author{{\em Otto Hannuksela} \and {\em Janne Lampilahti}}
+\date{\today}
+
 \begin{document}
 \maketitle
 \section*{INTRODUCTION}
-Dark matter appears to be the dominant form of matter in the universe. While no direct observations of dark matter exist, it has been observed indirectly through its gravitational interaction with visible matter and radiation. The effect of dark matter on structure formation in the universe is the subject of an increasing scientific interest and a useful tool in the search for possible candidates of dark matter. Current progress in the investigation of structure formation is mainly driven by advances in computational methods and capabilities. 
+Dark matter appears to be the dominant form of matter in the universe. While no direct observations of dark matter exist, it has been observed indirectly through its gravitational interaction with visible matter and radiation \citep{Roos2010}. The effect of dark matter on structure formation in the universe is the subject of an increasing scientific interest and a useful tool in the search for possible candidates of dark matter. Current progress in the investigation of structure formation is mainly driven by advances in computational methods and capabilities \citep{Kuhlen2012}. 
 
-In this work we simulate dark matter, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity in a comoving frame of reference. The software used is {\em Uintah}, a parallel partial differential equation solver on an adaptively refined multigrid.
-\section*{THEORY}
-The gravitational potential $\phi$ is given by the Poisson's equation of gravity
+In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} available from \url{http://uintah.utah.edu/}, a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations.
+
+\section*{METHODS}
+
+%%%%%
+\subsection*{Theory}
+A distribution of mass density $\rho$ gives rise to a gravitational potential $\phi$ according to the Poisson's equation of gravity
 \begin{equation}
-\nabla^2 \phi = 4\pi G \rho
+\nabla^2 \phi = 4\pi G \rho,
 \end{equation}
-where $\rho$ is the mass density. In our case we have a set of massive particles. The corresponding force field can be solved from the gradient
+where $G\approx 6.674\times10^{-11}$ Nm$^2$/kg$^2$ is the gravitational constant. The corresponding force field can be solved from the gradient
 \begin{equation}
 \mathbf{F} = -\nabla \phi.
 \end{equation}
-A new position and velocity for the particles after a time step $dt$ can be solved from Newton's equation of motion.
+In our simulation a distribution of massive particles create the mass density. A new position and velocity for the particles after a time step $dt$ can be solved from the Newton's equation of motion.
 \begin{align}
 \mathbf{v}(t+dt) &= \int_{t}^{t+dt}\frac{\mathbf{F}(t')}{m}dt' +  \mathbf{v}(t)\\
 \mathbf{x}(t+dt) &= \int_{t}^{t+dt}\mathbf{v}(t')dt' +  \mathbf{x}(t)
 \end{align}
+The use of this theory assumes that we do not have relativistic speeds or masses and that the maximum grid size is small enough that expansion of the universe can be neglected.  
 
-\section*{METHODS}
-The simulation is set up with respect to an adaptively refined three dimensional grid that supports particles (Fig. \ref{fig:grid}).
+%%%%%
+\subsection*{Numerical methods}
+The simulation is set up with respect to a three dimensional grid that supports particles (Fig. \ref{fig:grid}).
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
@@ -83,8 +87,8 @@ The simulation is set up with respect to an adaptively refined three dimensional
 \node [anchor=east] (patch) at (5,6) {patch};
 \node [anchor=east] (particle) at (7,2) {particle};
 \draw (1,1) grid (5,5);
-\draw [step=0.5] (3,3) grid (5,5);
-\draw [step=0.1] (4,4) grid (5,5);
+%\draw [step=0.5] (3,3) grid (5,5);
+%\draw [step=0.1] (4,4) grid (5,5);
 \draw [line width=2] (3,3) rectangle (5,5);
 \draw [->,thick] (node) -- (2,4);
 \draw [->,thick] (face) -- (2,4.5);
@@ -104,8 +108,8 @@ The simulation is set up with respect to an adaptively refined three dimensional
 The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
-\-\hspace{0ex}set boundary conditions\\
-\-\hspace{0ex}set initial $\mathbf{x}_p$, $\mathbf{v}_p$ and $m_p$ for particles $p$\\
+\-\hspace{0ex}set Dirichlet boundary conditions: $\phi=0$\\
+\-\hspace{0ex}set initial $\mathbf{x}_p$, $\mathbf{v}_p$ and $m_p$ for all particles $p$\\
 \-\hspace{0ex}calculate initial $\rho$\\
 \-\hspace{0ex}set initial guess for $\phi$\\
 \-\hspace{0ex}{\bf loop}\\
@@ -122,7 +126,7 @@ The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \label{alg:main}
 \end{algorithm}
 
-The Poisson's equation is solved with the successive over relaxation (SOR) algortihm (see Alg. \ref{alg:SOR}). The potential $\phi$ is solved at each node. In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
+The Poisson's equation is solved with the successive over relaxation (SOR) algortihm (Algorithm \ref{alg:SOR}). The potential $\phi$ is solved at each node. In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
 \begin{equation}
 (\nabla \phi)(x_p)=\frac{\phi(x_p+dx)-\phi(x_p-dx)}{2dx},
 \end{equation}
@@ -149,11 +153,27 @@ The particle velocity and position are evolved over a small time step $dt$, assu
 \label{alg:SOR}
 \end{algorithm}
 
+%%%%%
+\subsection*{Initialization of the simultaion}
+The specific case we want to study with our simulation is a dark matter halo. Dark matter halos are structures composed of dark matter, believed to envelope galaxy disks. We initialize the halo by letting a sphere of randomly distributed dark matter particles to collapse by the effect of gravity.
+
+%%%%%
+\subsection*{Verification of results}
+To verify the simulation results we test for energy conservation, compliance with the virial theorem 
+\begin{equation}
+\langle T \rangle_t = -\frac{1}{2}\langle V \rangle_t.
+\end{equation}
+
+Previous $N$-body simulations suggest that dark matter halos follow the Navarro-Frenk-White radial mass distribution 
+\begin{equation}
+\rho(r) = \frac{\rho_0}{\frac{r}{R_s}\left(1 + \frac{r}{R_s}\right)^2},
+\end{equation}
+where $r$ is distance from the center of the halo and $(\rho_0,R)$ are parameters. As part of our verification procedure we fit this distribution to the simulated dark matter halo.
 
 \section*{IMPLEMENTATION}
 \subsection*{Uintah}
 % describe uintah
-\subsection*{Program}
+\subsection*{The program}
 \section*{RESULTS}
 % visit figure:
 % initial vs final condition
