@@ -178,7 +178,7 @@ where $T$ is the total kinetic energy, $V$ is the total potential energy and $M$
 where we take a time average of the kinetic and potential energy over a time period $\tau$.
 
 
-We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation we solved a scaling factor $c$ from the virial theorem over some time interval $\tau$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau}$=c$\langle V\rangle_{\tau}$. We then tested whether energy conservation is satisfied when we use the scaling factor $c$.  
+We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:Uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation we solved a scaling factor $c$ from the virial theorem over some time interval $\tau$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau}$=c$\langle V\rangle_{\tau}$. We then tested whether energy conservation is satisfied when we use the scaling factor $c$.  
 
 We also compared the radial mass distribution of the obtained halo with the Navarro-Frenkel-White (NFW) profile, which is the radial mass distribution often obtained from simulations \citep{Navarro1995}. The profile is given by  
 \begin{equation}
@@ -394,7 +394,7 @@ fetches $1$ layer of \emph{ghost nodes}\footnote{See Section \ref{ssec:Uintah}}
 to deal with patch boundaries, as our algorithm needed the neighboring nodes\footnote{neighboring node = node which is one node to the left,right,down,up,forward or backward} 
 for each node. Additionally, we skip the cells at the patch \emph{boundaries} due 
 to boundary conditions. Our algorithm for solving the poisson 
-equation is demonstrated in Algorithm \ref{alg:poissonsolver}. For every iteration, we also 
+equation is demonstrated in Algorithm \ref{alg:Jacobi}. For every iteration, we also 
 created a task to utilize the full functionality of \emph{Uintah}. For task dependencies in the Poisson solver, please refer to Algorithm 
 \ref{alg:uintah_task}.
 
@@ -564,6 +564,31 @@ NFW profile could be fitted to the data from our simulation to find out the para
 
         
 
+\section{RUNNING, COMPILING AND DOING THINGS WITH UINTAH}
+
+In the requirements for the course, it was encouraged to add the software used into the project folder. We will not do this, as Uintah is a large code 
+that has some $\approx 700k$ lines of code. Additionally, to analyze the files one needs to compile \emph{VisIt} from source with the --uintah option 
+in order to read the \emph{.uda} file format. 
+
+
+In other words, installing Uintah can be done by first downloading it, taking a 2-10 hours to install all dependencies needed to compile it, then compile it 
+(the compilation will take another hour) and then you need to install VisIt from source. By the time you have Uintah installed, you should have most 
+of the dependencies worked out, though, so it's a bit easier. Downloading all the stuff that \emph{VisIt} uses will take approx an hour as well, though, and 
+compiling VisIt takes about an hour.
+
+For us, this took about 2 days, but then again we had some major dependency issues.
+
+\subsection{Installing instructions}
+
+Step 1 Download Uintah
+
+Step 2 Compile Uintah in a build folder
+
+Step 3 Download VisIt
+
+Step 4 Install VisIt from source using the --uintah option
+
+Step 5 You're done
         
 % what should we do next?
 
