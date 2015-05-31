@@ -13,30 +13,13 @@
 \usepackage{apalike}
 \usepackage{pdflscape}                % USE LANDSCAPE MODE
 \usetikzlibrary{decorations.pathreplacing}
-\usepackage{nameref}
 \usepackage{enumitem}
+
 
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
 
-
-% NAMEREF FORMATING
-\usepackage{hyperref}[2011/02/05]
-
-\hypersetup{hidelinks}
-\usepackage{letltxmacro}
-\makeatletter
-\AtBeginDocument{%
-  \@ifdefinable{\myorg@nameref}{%
-    \LetLtxMacro\myorg@nameref\nameref
-    \DeclareRobustCommand*{\nameref}[1]{%
-      \emph{\myorg@nameref{#1}}%
-    }%
-  }%
-}
-\makeatother
-%NAMEREF
 
 \renewcommand{\familydefault}{lmr}           % SET DOCUMENT FONT
 \makeatletter                         
@@ -78,9 +61,11 @@
 \section{INTRODUCTION}
 Dark matter appears to be the dominant form of matter in the universe. While no direct observations of dark matter exist, it has been observed indirectly through its gravitational interaction with visible matter and radiation \citep{Roos2010}. The effect of dark matter on structure formation in the universe is the subject of an increasing scientific interest and a useful tool in the search for possible candidates of dark matter. Current progress in the investigation of structure formation is mainly driven by advances in computational methods and capabilities \citep{Kuhlen2012}. 
 
-In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} available from \url{http://uintah.utah.edu/}, a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations. A major part of the project was to learn how to use the tools provided by Uintah.
+In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} (available from \url{http://uintah.utah.edu/} during the writing of this report), a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations. A major part of the project was to learn how to use the tools provided by Uintah.
 
 \section{METHODS}
+
+In this section the relevant theory and numerical methods are described. The method in short was to use a Poisson solver operating on a grid and an $N$-body integrator operating on particles, that are coupled via interpolation between the grid and the particles. This method is used in the context of massive collisionless particles interacting through gravity \citep[e.g.][]{Hockney1985}.  
 
 %%%%%
 \subsection{Theory}
@@ -102,9 +87,8 @@ The use of this theory assumes that we do not have relativistic speeds or masses
 One approach would be to try to calculate the particle-particle interactions but this is not computationally feasible since we would have $2^N$ interactions where $N$ is the particle number and we are using thousands of particles.  
 
 %%%%%
-\subsection*{Numerical methods}\label{ssec:numerical}
+\subsection{Numerical methods}\label{ssec:numerical}
 The simulation is set up with respect to a three dimensional grid that supports particles (Fig. \ref{fig:grid}).
-
 The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
@@ -172,22 +156,35 @@ After this using the new positions the particle masses are interpolated back to 
 
 %%%%%
 \subsection{Initialization of the simultaion}
-The specific case we want to study with our simulation is a dark matter halo. Dark matter halos are structures composed of dark matter, believed to envelope galaxy disks. We initialize the halo by letting a sphere of randomly distributed dark matter particles to collapse by the effect of gravity.
+The specific case we want to study with our simulation is a dark matter halo. Dark matter halos are structures composed of dark matter, believed to envelope galaxy disks.
+
+We randomly distribute dark matter particles into a box and let them collapse by the effect of gravity. We used either Dirichlet boundary conditions with $\rho=0$ or periodic boundary conditions.    
 
 %%%%%
 \subsection{Verification of results}
-To verify the simulation results we test for energy conservation, compliance with the virial theorem 
+To verify the simulation results we test for energy conservation:
+\begin{align}
+T+V&=\mathrm{constant}\\
+\frac{1}{2}\sum_{p} m_pv_p^2 + M\sum_{i,j,k}\phi_{i,j,k} &= \mathrm{constant} 
+\end{align}
+where $T$ is the total kinetic energy, $V$ is the total potential energy and $M$ refers to the total mass of the particles. In the context of gravitationl interactions only, the virial theorem is:
 \begin{equation}
-\langle T \rangle_t = -\frac{1}{2}\langle V \rangle_t.
+\langle T \rangle_\tau = -\frac{1}{2}\langle V \rangle_\tau
 \end{equation}
+where we take a time average of the kinetic and potential energy over a time period $\tau$.
 
-Previous $N$-body simulations suggest that dark matter halos follow the Navarro-Frenk-White radial mass distribution 
+We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation and virial theorem we solved a scaling factor $c$ from the virial theorem over some time interval $\tau_1$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau_1}$=c$\langle V\rangle_{\tau_1}$.
+
+Then we tested the virial theorem over some other time interval $\tau_2$ as well as energy conservation to see whether they are satisfied when we use the scaling factor $c$.  
+
+We also compare the radial mass distribution of the obtained halo with the Navarro-Frenkel-White (NFW) profile, which is the radial mass distribution often obtained from simulations \citep{Navarro1995}. The profile is given by  
 \begin{equation}
 \rho(r) = \frac{\rho_0}{\frac{r}{R_s}\left(1 + \frac{r}{R_s}\right)^2},
+\label{eq:nfw}
 \end{equation}
-where $r$ is distance from the center of the halo and $(\rho_0,R)$ are parameters. As part of our verification procedure we fit this distribution to the simulated dark matter halo.
+where $r$ is distance from the center of the halo and $(\rho_0,R)$ are parameters.    
 
-\section*{IMPLEMENTATION}
+\section{IMPLEMENTATION}
 
 In this section, we will often refer to Section \ref{ssec:numerical} and describe each numerical method's implementation in detail. During the whole 
 project, we made a lot of effort to make sure the algorithms fit the Uintah framework. Because of this, we will have extensive description of 
@@ -199,7 +196,7 @@ we will discuss some of the limitations and
 bugs of Uintah software which drained a painstaking amount of time to solve. For more information on Uintah framework, please refer to the \emph{uintah\_presentation.pdf} 
 we made on the software.
 
-\subsection*{Uintah} \label{ssec:Uintah}
+\subsection{Uintah} \label{ssec:Uintah}
 % describe uintah
 
 As mentioned in the title, we made a \emph{fully parallel} poisson solver utilizing particle-in-cell approach.
@@ -229,20 +226,34 @@ particle positions.
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\node [anchor=west] (node) at (-1,3) {node};
-\node [anchor=west] (face) at (0,6) {face};
-\node [anchor=west] (center) at (2,6) {center};
-\node [anchor=east] (patch) at (5,6) {patch};
-\node [anchor=east] (particle) at (7,2) {particle};
-\draw (1,1) grid (5,5);
-%\draw [step=0.5] (3,3) grid (5,5);
-%\draw [step=0.1] (4,4) grid (5,5);
-\draw [line width=2] (3,3) rectangle (5,5);
-\draw [->,thick] (node) -- (2,4);
-\draw [->,thick] (face) -- (2,4.5);
-\draw [->,thick] (center) -- (2.5,4.5);
-\draw [->,thick] (patch) -- (3.8,5.1);
-\draw [->,thick] (particle) -- (2.5,2.5);
+\node [anchor=east] (node) at (0,5) {node};
+\node [anchor=east] (face) at (1,6) {face};
+\node [anchor=west] (center) at (1.5,6) {center};
+\node [anchor=west] (patch1) at (-1.3,4) {patch 1};
+\node [anchor=east] (patch2) at (7.2,4) {patch 2};
+\node [anchor=west] (patch3) at (-1.3,2) {patch 3};
+\node [anchor=east] (patch4) at (7.2,2) {patch 4};
+\node [anchor=east] (particle) at (5,0.5) {particle};
+\node [anchor=west] (ghost) at (5.5,3) {ghost cells};
+\draw [step=1] (1,1) grid (5,5);
+\draw [step=0.5] (1,1) grid (5,5);
+\draw [line width=1.5,color=blue] (1,3.02) rectangle (2.98,5);
+\draw [line width=1.5,color=red] (3.02,3.02) rectangle (5,5);
+\draw [line width=1.5,color=green] (1,1) rectangle (2.98,2.98);
+\draw [line width=2,color=brown] (3.02,1) rectangle (5,2.98);
+\draw [line width=2,color=red,dashed] (2.5,2.5) -- (5,2.5);
+\draw [line width=2,color=red,dashed] (2.5,2.5) -- (2.5,5);
+\draw [line width=2,color=red,dashed] (2.5,5) -- (3,5);
+\draw [line width=2,color=red,dashed] (5,2.5) -- (5,3);
+\draw [->,thick] (node) -- (1.5,4.5);
+\draw [->,thick] (face) -- (1.5,4.75);
+\draw [->,thick] (center) -- (1.75,4.75);
+\draw [->,thick] (patch1) -- (0.9,4);
+\draw [->,thick] (patch2) -- (5.1,4);
+\draw [->,thick] (patch3) -- (0.9,2);
+\draw [->,thick] (patch4) -- (5.1,2);
+\draw [->,thick] (particle) -- (2.7,1.7);
+\draw [->,thick] (ghost) -- (5.1,2.75);
 \draw [fill] (2.3,2.5) circle [radius=0.05];
 \draw [fill] (2.6,1.8) circle [radius=0.05];
 \draw [fill] (1.6,2.3) circle [radius=0.05];
@@ -250,7 +261,7 @@ particle positions.
 %   xshift=5pt,yshift=0pt] (5,5)  -- (5,3)
 %   node [black,midway,below=-8pt,xshift=20pt] {AMR};
 \end{tikzpicture}
-\caption{A two dimensional view of the grid with its various components and properties shown.}
+\caption{A two dimensional view of the grid with its various components labeled.}
 \label{fig:grid}
 \end{figure}
 
@@ -335,7 +346,7 @@ made which can be found in:
 \end{verbatim}
 
 
-\subsection*{The program}
+\subsection{The program}
 
 Now that we know the basics on Uintah, we can move on to looking at our program. Our main algorithm is described in the Algorithm \ref{alg:main}, 
 and here we attempt to break this down into smaller details. All of this can 
@@ -402,14 +413,37 @@ Algorithm \ref{alg:main}, so we do not elaborate it further here.
 and is determined by the variable $Delt$ in the runtime \emph{XML} file. 
 We use constant timestepping, so this step needs nothing complicated.
 
-\section*{RESULTS}
+
+\section{RESULTS}
+\begin{figure}[H]
+\centering
+\includegraphics[width=.8\textwidth]{NFW_profile.pdf}
+\caption{The shape of the radial distribution of mass density suggested by NFW profile (Equation \ref{eq:nfw}), choosing $\rho_0=1$ and $R_s=1$.}
+\label{fig:nfw}
+\end{figure}
 % visit figure:
 % initial vs final condition
 % mp4 movie...
 \section{CONCLUSIONS} \label{sec:conclusions}
 % what should we do next?
 
-%\renewcommand{\refname}{REFERENCES} 
-%\bibliography{NameOfReferenceFile}{}
-%\bibliographystyle{plainnat}
+\renewcommand{\refname}{REFERENCES}
+\begin{thebibliography}{}
+\bibitem[Kuhlen et al., 2012]{Kuhlen2012}
+Kuhlen, M. et al., (2012),
+\newblock{Numerical Simulations of the Dark Universe: State of the Art and the Next Decade},
+\newblock{arXiv:1209.5745 [astro-ph, physics:hep-ph]}
+\bibitem[Roos, 2012]{Roos2010}
+Roos, M., (2010),
+\newblock{Dark Matter: The evidence from astronomy, astrophysics and cosmology},
+\newblock{arXiv:1001.0316 [astro-ph]}
+\bibitem[Hockeny and Eastwood, 1985]{Hockney1985}
+Hockney, R.W. and Eastwood, J.W., (1985),
+\newblock{Computer Simulation Using Particles},
+\newblock{CRC Press}
+\bibitem[Navarro et al., 1995]{Navarro1995}
+Navarro, F.N. et al., (1995),
+\newblock{The Structure of Cold Dark Matter Halos},
+\newblock{arXiv:astro-ph/9508025}
+\end{thebibliography}
 \end{document}
