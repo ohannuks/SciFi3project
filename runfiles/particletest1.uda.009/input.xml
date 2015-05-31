@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- <!DOCTYPE Uintah_specification SYSTEM "input.dtd"> -->
+<!-- @version: Updated 7/31/00-->
+<Uintah_specification>
+  <Meta>
+    <title>Poisson1 test</title>
+  </Meta>
+  <SimulationComponent type="particletest"/>
+  <Time>
+    <maxTime>1.0e60</maxTime>
+    <initTime>0.0</initTime>
+    <delt_min>0.1</delt_min>
+    <delt_max>0.1</delt_max>
+    <timestep_multiplier>1</timestep_multiplier>
+  </Time>
+  <DataArchiver>
+    <filebase>particletest1.uda</filebase>
+    <outputInterval>1</outputInterval>
+    <save label="p.mass"/>
+    <save label="p.x"/>
+    <save label="p.vx"/>
+    <save label="p.vy"/>
+    <save label="p.vz"/>
+    <save label="p.particleID"/>
+    <save label="phi"/>
+    <save label="nodeMass"/>
+    <save label="F_x"/>
+    <save label="F_y"/>
+    <save label="F_z"/>
+    <checkpoint cycle="2" interval="1"/>
+  </DataArchiver>
+  <LoadBalancer type="DLB">
+    <timestepInterval>2</timestepInterval>
+    <dynamicAlgorithm>patchFactorParticles</dynamicAlgorithm>
+    <outputNthProc>1</outputNthProc>
+    <cellCost>1</cellCost>
+    <extraCellCost>1</extraCellCost>
+    <particleCost>1.25</particleCost>
+    <patchCost>16</patchCost>
+    <gainThreshold>0.050000000000000003</gainThreshold>
+    <doSpaceCurve>true</doSpaceCurve>
+    <hasParticles>false</hasParticles>
+    <levelIndependent>true</levelIndependent>
+  </LoadBalancer>
+  <Poisson>
+    <delt>0.01</delt>
+    <maxresidual>8.4e18</maxresidual>
+  </Poisson>
+  <ParticleTest1>
+    <doOutput>0</doOutput>
+    <doGhostCells>0</doGhostCells>
+  </ParticleTest1>
+  <Grid>
+    <Level>
+      <Box label="1">
+        <lower>[0,0,0]</lower>
+        <upper>[100000,100000,100000]</upper>
+        <resolution>[35,35,35]</resolution>
+        <patches>[1,1,1]</patches>
+        <extraCells>[0, 0, 0]</extraCells>
+      </Box>
+      <periodic>[1,1,1]</periodic>
+    </Level>
+  </Grid>
+</Uintah_specification>

@@ -1,0 +1,13 @@
+# FILES and their descriptions:
+
+# Run with dirichlet boundary with phi = 0 at borders with 100000 particles
+particletest1.uda.002
+
+# Run with periodic boundary conditions with 100000 particles
+particletest1.uda.009
+
+# Run with 50**3 resolution and 150000 particles
+particletest1.uda.017
+
+# Test of virial theorem and energy conservation
+
