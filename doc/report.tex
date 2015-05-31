@@ -127,7 +127,7 @@ The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \end{algorithm}
 
 The Poisson's equation of gravity is discretized to 
-\begin{equation}
+\begin{equation} \label{eq:discretized_poisson}
 \begin{aligned}
 4\pi G\rho_{i,j,k} &= \frac{\phi_{i+1,j,k}-2\phi_{i,j,k}+\phi_{i-1,j,k}}{(\Delta x)^2}+\\
 & \phantom{{}={}} \frac{\phi_{i,j+1,k}-2\phi_{i,j,k}+\phi_{i,j-1,k}}{(\Delta y)^2}+\\
@@ -135,7 +135,7 @@ The Poisson's equation of gravity is discretized to
 \end{aligned}
 \end{equation}
 
-The gravitational potential $\phi$ is then solved at each node using using the successive over-relaxation (SOR) algortihm (Algorithm \ref{alg:SOR}) . In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
+The gravitational potential $\phi$ is then solved at each node using using the successive over-relaxation (SOR) algortihm (Algorithm \ref{alg:poissonsolver}) . In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
 \begin{equation}
 (\nabla \phi)(x_p)=\frac{\phi(x_p+dx)-\phi(x_p-dx)}{2dx},
 \end{equation}
@@ -164,7 +164,7 @@ After this using the new positions the particle masses are interpolated back to 
 \-\hspace{4ex}{\bf return} $\phi$\\
 \-\hspace{0ex}{\bf end function}}
 \caption{Calculating potential $\phi$ using the SOR algorithm.}
-\label{alg:SOR}
+\label{alg:poissonsolver}
 \end{algorithm}
 
 
@@ -189,13 +189,14 @@ where $r$ is distance from the center of the halo and $(\rho_0,R)$ are parameter
 
 \section*{IMPLEMENTATION}
 
-In this section, we will often refer to Section \nameref{ssec:numerical} and describe each numerical method's implementation in detail. During the whole 
+In this section, we will often refer to Section \ref{ssec:numerical} and describe each numerical method's implementation in detail. During the whole 
 project, we made a lot of effort to make sure the algorithms fit the Uintah framework. Because of this, we will have extensive description of 
-the Uintah framework in the Section \nameref{ssec:Uintah}, describing how the Uintah patches which are used in the Poisson solver work, 
+the Uintah framework in the Section \ref{ssec:Uintah}, describing how the Uintah patches which are used in the Poisson solver work, 
 how particle masses are interpolated to the grid and how the gradient of potential is calculated. 
 
-Additionally, we will discuss some of the limitations and 
-bugs of Uintah software which drained a painstaking amount of time from us. For more information on Uintah framework, please refer to the \emph{uintah\_presentation.pdf} 
+In addition to describing our implementation and the Uintah framework, 
+we will discuss some of the limitations and 
+bugs of Uintah software which drained a painstaking amount of time to solve. For more information on Uintah framework, please refer to the \emph{uintah\_presentation.pdf} 
 we made on the software.
 
 \subsection*{Uintah} \label{ssec:Uintah}
@@ -254,33 +255,158 @@ particle positions.
 \end{figure}
 
 One of the biggest reasons we chose to use the Uintah framework was that it has a very advanced \emph{parallel task system}. As already mentioned 
-previously, in Uintah parallelization goes over patches. Every \emph{process} has an N amount of patches which they are in charge of, and those patches 
+previously, in Uintah parallelization goes over patches. Every \emph{process} has \emph{N} patches which they are in charge of, and those patches 
 are distributed according to load balancing settings. In our case, we chose to use a load balancing option that takes the number of particles into account. 
 
-The parallel task system takes care of most data communication and working with data dependencies. For each function, we must define a task which takes in 
-the \emph{function}, the function's \emph{dependencies} and the function's \emph{output}.
+The parallel task system takes care of most data communication and working with data dependencies. For each \emph{function}, we must define a task which 
+takes in the function, the function's \emph{dependencies} and the function's \emph{output}.
 
 For instance, as we can see in the Equation 
 \ref{eq:discretized_poisson}, for one poisson iteration, we need the \emph{last iteration's} $\phi=\phi_{previous}$ value as well as the distribution of 
-particle density $\rho$, and one poisson iteration calculates the next $\phi=\phi_{next}$ value.
+particle density $\rho$, and one poisson iteration calculates the next $\phi=\phi_{next}$ value. Additionally, because according to Equation \ref{eq:discretized_poisson} 
+we need neighbor values of every $\phi$ in our iterations, we need to tell the task that it needs to fetch 1 layer of \emph{ghost cells}. The concept of 
+\emph{ghost cells} was demonstrated in Figure \ref{fig:grid}.
 
 In pseudocode, this would be:
+\begin{algorithm}[H]
+ \begin{algorithmic}
+  \State $Task \gets $new task($poissonIterationStep$)
+  \State $Task \gets$ $\phi_{previous}$ with $1$ layer of \emph{ghost cells}
+  \State $Task \gets$ $\rho_{current}$
+  \State $Task$ \emph{computes} $\phi_{next}$
+  \State $Scheduler \gets Task$
+ \end{algorithmic}
+ \caption{Demonstrating Uintah taskgraph system}
+ \label{alg:uintah_task}
+\end{algorithm}
 
-\begin{algorithmic}
- \State $Task \gets $new task($poissonIteration$)
- \State $Task \gets$ $\phi_{previous}$
- \State $Task \gets$ $\rho_{current}$
- \State $Task$ computes $\phi_{next}$
- \State $Scheduler \gets Task$
-\end{algorithmic}
+In addition to tasks and different patch hierarchies, we may also explain the way Uintah parallelizes things, and why it is currently regarded as perhaps 
+the most scalable grid library. Normally in most grid libraries, things advance in a \emph{semi-serial} way due to normal MPI programming. Whenever 
+a function is done calculating, there is some communication between MPI processes (e.g. process \#1 needs to tell \#2 some result of a calculation). Until the 
+communication is done, the process is often left hanging. This phenomena is often referred to as \emph{load imbalance}.
+
+In the case of Uintah, the problem of load imbalance is overcome by introducing \emph{task dependencies}, which we already went through shortly in this section. 
+Task dependencies refer to tasks having certain dependencies before they can be executed. For instance, say process \#1 can move to interpolating particle 
+values to a grid or to calculating poisson iterations and poisson iteration still requires a variable which has not been calculated. In this case, the 
+process \#1 would simply move on to interpolating particle values, instead of hanging around doing nothing, as would be the case in most normal parallel 
+simulations.
+
+For demonstration, we present a task graph taken from Uintah website in Figure \ref{fig:uintah_taskgraph}.
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=\textwidth]{Uintah/taskgraph.png}
+ \caption{Task graph example from Uintah's website}
+ \label{fig:uintah_taskgraph}
+\end{figure}
+
+In Uintah, there are essentially \emph{2} different ways to parallelize the simulation. Either one distributes the workload among \emph{processes}, or 
+one distributes the workload among both \emph{processes} and \emph{threads}. We did not use the thread-based parallelization because unfortunately neither of 
+our MPICH versions had support for the required level 3 parallelization, and tackling that problem simply requires too much of our valuable time. In fact, 
+even FMI's supercomputer \emph{Voima} did not have support for level 3 paralllelization. We were still intrigued by the concept of making a \emph{hybrid-parallelization}, 
+especially since our simulation should have it working out of the box, so we read more about it.
+
+The way hybrid-parallelization in Uintah works is that every process is assigned $N$ threads, from which $1$ is used for MPI communication, and $N-1$ are 
+used for execution of tasks. This should guarantee fast execution on supercomputers, as long as $N \approx 15-30$. Using hybrid-parallelization would 
+reduce MPI communication, as threads within a process would have shared memory, and would not require for instance communication of ghost cells through 
+MPI.
+
+In addition to having a nice task-graph system, Uintah has put some effort into having general-use interfaces for implementing things. Patches can be sorted 
+with \emph{Hilbert spatial filling curves}\footnote{Hilbert spatial filling curves are used to optimize memory cache. In the case of our simulation, cells 
+are sorted in the way that neighbors of each cell are closer in memory, reducing cache misses in fetching neighbor cell data. For more information on 
+space filling curves, see \url{http://www.diss.fu-berlin.de/diss/servlets/MCRFileNodeServlet/FUDISS_derivate_000000003494/2_kap2.pdf?hosts=}}, Uintah has tools for interpolating particles to nodes and nodes to particles and it has tools for calculating 
+interpolated derivatives. Additionally, Uintah has support for implementing \emph{adaptive mesh refinement}\footnote{See Section \ref{sec:conclusions}}. 
+Despite the fact that these tools have a steep learning curve, they will become invaluable when implementing parallel and optimized algorithms for 
+mesh-based methods.
+
+Finally, we will discuss some of the \emph{bugs and limitations} in Uintah. For one, interpolating particle and cell variables back and forth are viable only 
+for node-based variables out-of-the-box. This is not unusual, as the visualization software \emph{VisIt} and most other mesh visualization softwares have 
+a similar take on this. Making sparse data is also not possible in Uintah, meaning that solving e.g. \emph{Vlasov} equation on a sparse grid is not 
+possible, and neither is solving many-dimensional partial differential equations with methods such as adaptive \emph{radial basis method}\footnote{Solving 
+partial differential equations by assuming a basis of radial functions and often neglecting the functions which contribute less}. Additionally, there 
+was one great limitation we encountered; the particle interpolation does not work when the particle variable has values around $1.0e40$. It gives spiked 
+results for the interpolated variable, and it took us a day to find out this was why our simulation was producing incorrect results.
+
+For some additional information, please refer to the Uintah presentation we 
+made which can be found in:
+
+\begin{verbatim}
+./doc/Uintah/uintah_presentation.pdf
+\end{verbatim}
 
 
 \subsection*{The program}
+
+Now that we know the basics on Uintah, we can move on to looking at our program. Our main algorithm is described in the Algorithm \ref{alg:main}, 
+and here we attempt to break this down into smaller details. All of this can 
+be found also in our project files \emph{ParticleTest1.cc} and 
+\emph{ParticleTest1.h}.
+
+\emph{set Dirichlet or periodic boundary conditions}. Setting either dirichlet or periodic boundary conditions is fairly straightforward. 
+In fact, this is something that we found Uintah can do for us. We need to 
+simply input our boundary conditions in a run file and take it into account 
+in our poisson solver. In our poisson solver, we simply skip iterating the 
+cells that are on our grid border.
+
+\emph{set initial $\mathbf{x}_p$, $\mathbf{v}_p$ and $m_p$ for all particles $p$}. 
+For this purpose, Uintah specifies a function for initializing our data. We 
+set particle position $\mathbf{x}_p=rand(grid)$, velocity $\mathbf{v}_p=0$ and mass $m_p = 1.0e4$. 
+
+\emph{interpolate initial $\rho$ from particle mass $m_p$}. For this, we use 
+linear interpolation method. Our $\rho$ is specified at each cell corner 
+(\emph{node}\footnote{See section \ref{ssec:Uintah}}) and we interpolate 
+the particle mass variable to nearest $8$ nodes. Since $\rho$ is density, we 
+also divide the interpolated mass variable by one cell volume $\Delta x \Delta y \Delta z$. 
+The reason we chose to interpolate only to $8$ nearest nodes (e.g. 
+use linear interpolation) is because it has 
+been shown that this is produces a sufficient accuracy 
+for the Poisson equation\citep{linearinterpolation}. By sufficient, 
+we of course mean that it does not introduce a global error of higher order 
+than what is already in our simulation due to discretizing poisson equation.
+For this purpose, we 
+found that Uintah has a class called \emph{ParticleInterpolator} that 
+produces interpolation. This required us to change our $\rho$ variable to 
+node-centered form from cell-centered form, however. This method is widely 
+used for communication between grids and particles, and commonly methods 
+using this are referred to as a \emph{cloud-in-cell} or \emph{particle-in-cell} 
+methods.
+
+\emph{set initial guess for $\phi$}. We set this to zero everywhere.
+
+\emph{solve $\phi$ at the nodes}. For this, we created an iterative solver 
+that goes through each patch\footnote{See Section \ref{ssec:Uintah}} and 
+iterates through each \emph{node} in that patch. Basically, we solve 
+the Equation \ref{eq:discretized_poisson}. We require that each patch 
+fetches $1$ layer of \emph{ghost nodes}\footnote{See Section \ref{ssec:Uintah}} 
+to deal with patch boundaries, as our algorithm needed the neighboring nodes\footnote{neighboring node = node which is one node to the left,right,down,up,forward or backward} 
+for each node. Additionally, we skip the cells at the patch \emph{boundaries} due 
+to boundary conditions. Our algorithm for solving the poisson 
+equation is demonstrated in Algorithm \ref{alg:poissonsolver}. For every iteration, we also 
+created a task to utilize the full functionality of \emph{Uintah}. For task dependencies in the Poisson solver, please refer to Algorithm 
+\ref{alg:uintah_task}.
+
+\emph{calculate $\mathbf{F}=-\nabla \phi$ for each particle $p$}. For this, 
+we use linear interpolation. For every particle $p$, we pick the $8$ nearest 
+nodes and interpolate to values $x_i+dx_i$ and $x_i-dx_i$ for every $i$. 
+This means that our gradient calculation is also based on linear interpolation. 
+This introduces some error, but again it has been shown to be sufficient 
+for solving poisson equation\citep{linearinterpolation}.
+
+\emph{propagating every particle p}. This is already documented in 
+Algorithm \ref{alg:main}, so we do not elaborate it further here.
+
+\emph{interpolate new $\rho$ from particle mass $m_p$}. See the step 
+\emph{interpolate initial $\rho$ from particle mass $m_p$}.
+
+\emph{$t \gets t + \Delta t$}. This is done in the Uintah framework 
+and is determined by the variable $Delt$ in the runtime \emph{XML} file. 
+We use constant timestepping, so this step needs nothing complicated.
+
 \section*{RESULTS}
 % visit figure:
 % initial vs final condition
 % mp4 movie...
-\section{CONCLUSIONS}
+\section{CONCLUSIONS} \label{sec:conclusions}
 % what should we do next?
 
 %\renewcommand{\refname}{REFERENCES} 
