@@ -38,27 +38,27 @@
 \makeatletter                         
 \renewcommand{\section}{\@startsection       % SECTION
         {section}
-        {2ex}
+        {2}
         {0mm}
         {1.2\baselineskip}
         {\baselineskip}
         {\centering\normalsize}}
 \renewcommand{\subsection}{\@startsection    % SUBSECTION
         {subsection}
-        {2ex}
+        {2}
         {0mm}
         {.8\baselineskip}
         {.5\baselineskip}
         {\bfseries\normalsize}}
 \renewcommand{\subsubsection}{\@startsection % SUBSUBSECTION
         {subsubsection}
-        {2ex}
+        {2}
         {0mm}
         {.5\baselineskip}
         {0mm}
-        {\it\bfseries\normalsize}}    
+        {\it\bfseries\normalsize}}
 \makeatother
-
+    
 % define algorithm environments
 \floatstyle{plaintop}
 \newfloat{algorithm}{bpht}{alg}
@@ -71,20 +71,20 @@
 
 \begin{document}
 \maketitle
-\section*{INTRODUCTION}
+\section{INTRODUCTION}
 Dark matter appears to be the dominant form of matter in the universe. While no direct observations of dark matter exist, it has been observed indirectly through its gravitational interaction with visible matter and radiation \citep{Roos2010}. The effect of dark matter on structure formation in the universe is the subject of an increasing scientific interest and a useful tool in the search for possible candidates of dark matter. Current progress in the investigation of structure formation is mainly driven by advances in computational methods and capabilities \citep{Kuhlen2012}. 
 
-In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} available from \url{http://uintah.utah.edu/}, a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations.
+In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} available from \url{http://uintah.utah.edu/}, a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations. A major part of the project was to learn how to use the tools provided by Uintah.
 
-\section*{METHODS}
+\section{METHODS}
 
 %%%%%
-\subsection*{Theory}
+\subsection{Theory}
 A distribution of mass density $\rho$ gives rise to a gravitational potential $\phi$ according to the Poisson's equation of gravity
 \begin{equation}
 \nabla^2 \phi = 4\pi G \rho,
 \end{equation}
-where $G\approx 6.674\times10^{-11}$ Nm$^2$/kg$^2$ is the gravitational constant. The corresponding force field can be solved from the gradient
+where $G\approx 6.674\times10^{-11}$ Nm$^2$/kg$^2$ is the gravitational constant. In our simulation we normalize $G=1$. The corresponding force field can be solved from the gradient
 \begin{equation}
 \mathbf{F} = -\nabla \phi.
 \end{equation}
@@ -93,7 +93,9 @@ In our simulation a distribution of massive particles create the mass density. A
 \mathbf{v}(t+dt) &= \int_{t}^{t+dt}\frac{\mathbf{F}(t')}{m}dt' +  \mathbf{v}(t)\\
 \mathbf{x}(t+dt) &= \int_{t}^{t+dt}\mathbf{v}(t')dt' +  \mathbf{x}(t)
 \end{align}
-The use of this theory assumes that we do not have relativistic speeds or masses and that the maximum grid size is small enough that expansion of the universe can be neglected.  
+The use of this theory assumes that we do not have relativistic speeds or masses and that the maximum grid size is small enough that expansion of the universe can be neglected.
+
+One approach would be to try to calculate the particle-particle interactions but this is not computationally feasible since we would have $2^N$ interactions where $N$ is the particle number and we are using thousands of particles.  
 
 %%%%%
 \subsection*{Numerical methods}\label{ssec:numerical}
@@ -102,31 +104,45 @@ The simulation is set up with respect to a three dimensional grid that supports 
 The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
-\-\hspace{0ex}set Dirichlet boundary conditions: $\phi=0$\\
+\-\hspace{0ex}set Dirichlet or periodic boundary conditions\\
 \-\hspace{0ex}set initial $\mathbf{x}_p$, $\mathbf{v}_p$ and $m_p$ for all particles $p$\\
-\-\hspace{0ex}calculate initial $\rho$\\
+\-\hspace{0ex}interpolate initial $\rho$ from particle mass $m_p$\\
 \-\hspace{0ex}set initial guess for $\phi$\\
 \-\hspace{0ex}{\bf loop}\\
-\-\hspace{4ex}solve $\phi$ using SOR algorithm\\
-\-\hspace{4ex}calculate $\mathbf{F}=-\nabla \phi$\\
+\-\hspace{4ex}solve $\phi$ at the nodes using the SOR algorithm\\
+\-\hspace{4ex}calculate $\mathbf{F}=-\nabla \phi$ with respect to each particle $p$\\
 \-\hspace{4ex}{\bf for} every particle $p$ {\bf do}\\
 \-\hspace{8ex}$\mathbf{v}_p(t+\Delta t) = (\mathbf{F}_p/m)\Delta t + \mathbf{v}_p(t)$\\
 \-\hspace{8ex}$\mathbf{x}_p(t+\Delta t) = \mathbf{v}_p(t)\Delta t + \mathbf{x}_p(t)$\\
 \-\hspace{4ex}{\bf end for}\\
-\-\hspace{4ex}calculate $\rho$\\
+\-\hspace{4ex}interpolate new $\rho$ from particle mass $m_p$\\
 \-\hspace{4ex}$t\leftarrow t+\Delta t$\\
 \-\hspace{0ex}{\bf end loop}}
 \caption{Main program.}
 \label{alg:main}
 \end{algorithm}
 
-The Poisson's equation is solved with the successive over relaxation (SOR) algortihm (Algorithm \ref{alg:SOR}). The potential $\phi$ is solved at each node. In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
+The Poisson's equation of gravity is discretized to 
+\begin{equation}
+\begin{aligned}
+4\pi G\rho_{i,j,k} &= \frac{\phi_{i+1,j,k}-2\phi_{i,j,k}+\phi_{i-1,j,k}}{(\Delta x)^2}+\\
+& \phantom{{}={}} \frac{\phi_{i,j+1,k}-2\phi_{i,j,k}+\phi_{i,j-1,k}}{(\Delta y)^2}+\\
+& \phantom{{}={}} \frac{\phi_{i,j,k+1}-2\phi_{i,j,k}+\phi_{i,j,k-1}}{(\Delta z)^2}.
+\end{aligned}
+\end{equation}
+
+The gravitational potential $\phi$ is then solved at each node using using the successive over-relaxation (SOR) algortihm (Algorithm \ref{alg:SOR}) . In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
 \begin{equation}
 (\nabla \phi)(x_p)=\frac{\phi(x_p+dx)-\phi(x_p-dx)}{2dx},
 \end{equation}
-where $x_p$ is the particle's $x$ coordinate and $dx$ is a small distance. 
+where $x_p$ is the particle's $x$ coordinate and $dx$ is a small distance.  
 
-The particle velocity and position are evolved over a small time step $dt$, assuming that the force remains constant. After this the particle masses are again interpolated back to the nodes to obtain a new mass density $\rho$.
+The particle velocity and position are evolved over a small time step $dt$, assuming that the force remains constant. Essentially this means calculating for each particle
+\begin{align}
+&=\mathbf{v}_p(t+\Delta t) = (\mathbf{F}_p/m)\Delta t + \mathbf{v}_p(t)\\
+&=\mathbf{x}_p(t+\Delta t) = \mathbf{v}_p(t)\Delta t + \mathbf{x}_p(t).
+\end{align}
+After this using the new positions the particle masses are interpolated back to the nodes to obtain a new mass density $\rho$.
 
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
@@ -151,11 +167,11 @@ The particle velocity and position are evolved over a small time step $dt$, assu
 
 
 %%%%%
-\subsection*{Initialization of the simultaion}
+\subsection{Initialization of the simultaion}
 The specific case we want to study with our simulation is a dark matter halo. Dark matter halos are structures composed of dark matter, believed to envelope galaxy disks. We initialize the halo by letting a sphere of randomly distributed dark matter particles to collapse by the effect of gravity.
 
 %%%%%
-\subsection*{Verification of results}
+\subsection{Verification of results}
 To verify the simulation results we test for energy conservation, compliance with the virial theorem 
 \begin{equation}
 \langle T \rangle_t = -\frac{1}{2}\langle V \rangle_t.
@@ -242,7 +258,7 @@ Throughout our simulation,
 % visit figure:
 % initial vs final condition
 % mp4 movie...
-\section*{CONCLUSIONS}
+\section{CONCLUSIONS}
 % what should we do next?
 
 %\renewcommand{\refname}{REFERENCES} 
