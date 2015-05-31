@@ -1,4 +1,6 @@
-# FILES and their descriptions:
+# run files and their descriptions:
+
+# For the actual runtime data, we can give them if needed but we did not include them here, as they are quite large in size. In here we simply put the runfiles which include the configuration settings for each run
 
 # Run with dirichlet boundary with phi = 0 at borders with 100000 particles
 particletest1.uda.002
@@ -9,5 +11,7 @@ particletest1.uda.009
 # Run with 50**3 resolution and 150000 particles
 particletest1.uda.017
 
-# Test of virial theorem and energy conservation
+# Test of virial theorem and energy conservation (these do require the runfiles..)
+testVirialTheoremAndEnergyConservation.sh # Extracts data and Calls the python file
+testVirialTheoremAndEnergyConservation.py # Calculates the energy conservation from extracted data
 
