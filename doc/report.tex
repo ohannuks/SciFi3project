@@ -13,6 +13,26 @@
 \usepackage{apalike}
 \usepackage{pdflscape}                % USE LANDSCAPE MODE
 \usetikzlibrary{decorations.pathreplacing}
+\usepackage{nameref}
+\usepackage{enumitem}
+
+
+% NAMEREF FORMATING
+\usepackage{hyperref}[2011/02/05]
+
+\hypersetup{hidelinks}
+\usepackage{letltxmacro}
+\makeatletter
+\AtBeginDocument{%
+  \@ifdefinable{\myorg@nameref}{%
+    \LetLtxMacro\myorg@nameref\nameref
+    \DeclareRobustCommand*{\nameref}[1]{%
+      \emph{\myorg@nameref{#1}}%
+    }%
+  }%
+}
+\makeatother
+%NAMEREF
 
 \renewcommand{\familydefault}{lmr}           % SET DOCUMENT FONT
 \makeatletter                         
@@ -76,35 +96,9 @@ In our simulation a distribution of massive particles create the mass density. A
 The use of this theory assumes that we do not have relativistic speeds or masses and that the maximum grid size is small enough that expansion of the universe can be neglected.  
 
 %%%%%
-\subsection*{Numerical methods}
+\subsection*{Numerical methods}\label{ssec:numerical}
 The simulation is set up with respect to a three dimensional grid that supports particles (Fig. \ref{fig:grid}).
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}
-\node [anchor=west] (node) at (-1,3) {node};
-\node [anchor=west] (face) at (0,6) {face};
-\node [anchor=west] (center) at (2,6) {center};
-\node [anchor=east] (patch) at (5,6) {patch};
-\node [anchor=east] (particle) at (7,2) {particle};
-\draw (1,1) grid (5,5);
-%\draw [step=0.5] (3,3) grid (5,5);
-%\draw [step=0.1] (4,4) grid (5,5);
-\draw [line width=2] (3,3) rectangle (5,5);
-\draw [->,thick] (node) -- (2,4);
-\draw [->,thick] (face) -- (2,4.5);
-\draw [->,thick] (center) -- (2.5,4.5);
-\draw [->,thick] (patch) -- (3.8,5.1);
-\draw [->,thick] (particle) -- (2.5,2.5);
-\draw [fill] (2.3,2.5) circle [radius=0.05];
-\draw [fill] (2.6,1.8) circle [radius=0.05];
-\draw [fill] (1.6,2.3) circle [radius=0.05];
-%\draw [black,decorate,decoration={brace,amplitude=5pt},
-%   xshift=5pt,yshift=0pt] (5,5)  -- (5,3)
-%   node [black,midway,below=-8pt,xshift=20pt] {AMR};
-\end{tikzpicture}
-\caption{A two dimensional view of the grid with its various components and properties shown.}
-\label{fig:grid}
-\end{figure}
+
 The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
@@ -153,6 +147,9 @@ The particle velocity and position are evolved over a small time step $dt$, assu
 \label{alg:SOR}
 \end{algorithm}
 
+
+
+
 %%%%%
 \subsection*{Initialization of the simultaion}
 The specific case we want to study with our simulation is a dark matter halo. Dark matter halos are structures composed of dark matter, believed to envelope galaxy disks. We initialize the halo by letting a sphere of randomly distributed dark matter particles to collapse by the effect of gravity.
@@ -171,8 +168,75 @@ Previous $N$-body simulations suggest that dark matter halos follow the Navarro-
 where $r$ is distance from the center of the halo and $(\rho_0,R)$ are parameters. As part of our verification procedure we fit this distribution to the simulated dark matter halo.
 
 \section*{IMPLEMENTATION}
-\subsection*{Uintah}
+
+In this section, we will often refer to Section \nameref{ssec:numerical} and describe each numerical method's implementation in detail. During the whole 
+project, we made a lot of effort to make sure the algorithms fit the Uintah framework. Because of this, we will have extensive description of 
+the Uintah framework in the Section \nameref{ssec:Uintah}, describing how the Uintah patches which are used in the Poisson solver work, 
+how particle masses are interpolated to the grid and how the gradient of potential is calculated. 
+
+Additionally, we will discuss some of the limitations and 
+bugs of Uintah software which drained a painstaking amount of time from us. For more information on Uintah framework, please refer to the \emph{uintah\_presentation.pdf} 
+we made on the software.
+
+\subsection*{Uintah} \label{ssec:Uintah}
 % describe uintah
+
+As mentioned in the title, we made a \emph{fully parallel} poisson solver utilizing particle-in-cell approach.
+
+Before we start with the actual algorithms, let's go through the basics of Uintah. There are a few concepts to understand; \emph{cells}, \emph{patches}, 
+\emph{ghost cells}, \emph{cell-centered variables}, \emph{node-centered variables}, \emph{face-centered variables} and \emph{particles}. 
+
+We present an explanation for each of these accompanied by a Figure (Figure \ref{fig:grid}) demonstrating a visual description.
+
+\begin{enumerate}
+\item \emph{Cells} are finite boxes in the grid. These are the basic elements of our simulation. In the case of our poisson solver, we discretize our poisson equation 
+based on cells in such a way that our discretization length \emph{h} in Equation \ref{eq:discretized_poisson} is the length between \emph{cells}.
+\item \emph{Patches} are collections of \emph{cells} in our grid. The reason to have a concept of \emph{patches} is that Uintah uses patches to distribute 
+workloads for different processes. In Uintah, whenever we iterate through \emph{cells}, we iterate through them patch-by-patch. This introduces some complications, 
+such as how to handle the boundary between patches. The boundary issue will be further elaborated on.
+\item \emph{Ghost cells} are cells which are one or more step beyond the border of a \emph{patch}. The whole concept of ghost cells is meaningless if we 
+do not work in parallel. In a parallel simulation (employing more than one process), having ghost cells is of utmost importance because it is used to handle 
+\emph{MPI communication} between different processes' \emph{patches}.
+\item \emph{Cell-centered variables} are variables which are defined at the center of each \emph{cell}.
+\item \emph{Node-centered variables} are variables which are defined at the corners of each \emph{cell}.
+\item \emph{Face-centered variables} are variables which are defined at the faces of each \emph{cell}.
+\item \emph{Particles} are point variables defined at any arbitrary point in the simulation grid. In our simulation, cell/node/face-centered variables 
+interact with each other by interpolating particle variables to cell/node/face-centered positions and by interpolating cell/node/face-centered variables to 
+particle positions.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\node [anchor=west] (node) at (-1,3) {node};
+\node [anchor=west] (face) at (0,6) {face};
+\node [anchor=west] (center) at (2,6) {center};
+\node [anchor=east] (patch) at (5,6) {patch};
+\node [anchor=east] (particle) at (7,2) {particle};
+\draw (1,1) grid (5,5);
+%\draw [step=0.5] (3,3) grid (5,5);
+%\draw [step=0.1] (4,4) grid (5,5);
+\draw [line width=2] (3,3) rectangle (5,5);
+\draw [->,thick] (node) -- (2,4);
+\draw [->,thick] (face) -- (2,4.5);
+\draw [->,thick] (center) -- (2.5,4.5);
+\draw [->,thick] (patch) -- (3.8,5.1);
+\draw [->,thick] (particle) -- (2.5,2.5);
+\draw [fill] (2.3,2.5) circle [radius=0.05];
+\draw [fill] (2.6,1.8) circle [radius=0.05];
+\draw [fill] (1.6,2.3) circle [radius=0.05];
+%\draw [black,decorate,decoration={brace,amplitude=5pt},
+%   xshift=5pt,yshift=0pt] (5,5)  -- (5,3)
+%   node [black,midway,below=-8pt,xshift=20pt] {AMR};
+\end{tikzpicture}
+\caption{A two dimensional view of the grid with its various components and properties shown.}
+\label{fig:grid}
+\end{figure}
+
+Throughout our simulation, 
+
+
+
 \subsection*{The program}
 \section*{RESULTS}
 % visit figure:
