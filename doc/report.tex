@@ -16,6 +16,10 @@
 \usepackage{nameref}
 \usepackage{enumitem}
 
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+
 
 % NAMEREF FORMATING
 \usepackage{hyperref}[2011/02/05]
@@ -249,8 +253,26 @@ particle positions.
 \label{fig:grid}
 \end{figure}
 
-Throughout our simulation, 
+One of the biggest reasons we chose to use the Uintah framework was that it has a very advanced \emph{parallel task system}. As already mentioned 
+previously, in Uintah parallelization goes over patches. Every \emph{process} has an N amount of patches which they are in charge of, and those patches 
+are distributed according to load balancing settings. In our case, we chose to use a load balancing option that takes the number of particles into account. 
 
+The parallel task system takes care of most data communication and working with data dependencies. For each function, we must define a task which takes in 
+the \emph{function}, the function's \emph{dependencies} and the function's \emph{output}.
+
+For instance, as we can see in the Equation 
+\ref{eq:discretized_poisson}, for one poisson iteration, we need the \emph{last iteration's} $\phi=\phi_{previous}$ value as well as the distribution of 
+particle density $\rho$, and one poisson iteration calculates the next $\phi=\phi_{next}$ value.
+
+In pseudocode, this would be:
+
+\begin{algorithmic}
+ \State $Task \gets $new task($poissonIteration$)
+ \State $Task \gets$ $\phi_{previous}$
+ \State $Task \gets$ $\rho_{current}$
+ \State $Task$ computes $\phi_{next}$
+ \State $Scheduler \gets Task$
+\end{algorithmic}
 
 
 \subsection*{The program}
