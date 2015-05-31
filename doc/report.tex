@@ -63,7 +63,7 @@ Dark matter appears to be the dominant form of matter in the universe. While no 
 
 In this work we simulate a dark matter halo, neglecting baryonic matter, by using a particle based method and solving the Poisson's equation of gravity. The software used is {\em Uintah} (available from \url{http://uintah.utah.edu/} during the writing of this report), a parallel grid framework with a support for particle interactions and adaptive mesh refinement and which is aimed at solving partial differential equations. A major part of the project was to learn how to use the tools provided by Uintah.
 
-\section{METHODS}
+\section{METHODS} \label{sec:methods}
 
 In this section the relevant theory and numerical methods are described. The method in short was to use a Poisson solver operating on a grid and an $N$-body integrator operating on particles, that are coupled via interpolation between the grid and the particles. This method is used in the context of massive collisionless particles interacting through gravity \citep[e.g.][]{Hockney1985}.  
 
@@ -161,7 +161,7 @@ The specific case we want to study with our simulation is a dark matter halo. Da
 We randomly distribute dark matter particles into a box and let them collapse by the effect of gravity. We used either Dirichlet boundary conditions with $\rho=0$ or periodic boundary conditions.    
 
 %%%%%
-\subsection{Verification of results}
+\subsection{Verification of results} \label{sec:verification}
 To verify the simulation results we test for energy conservation:
 \begin{align}
 T+V&=\mathrm{constant}\\
@@ -415,12 +415,109 @@ We use constant timestepping, so this step needs nothing complicated.
 
 
 \section{RESULTS}
+
+\subsection{Movies}
+
+We present movies separately from this report. They are one of the main results of this whole study, however, as they demonstrate 
+perhaps the best way how our simulation works dynamically. These movies can be found in the \emph{movies} folder.
+
+\subsection{Dark matter halo}
+
+Here we present the dark matter halo in our simulation at an Equilibrium. For a better view of the dynamics of the whole process, please see our 
+movies of different simulation runs.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=.8\textwidth]{dm_halo.png}
+\caption{Our simulation run with periodic boundary conditions and a formed halo. The simulation time step is chosen from a point when the halo shape 
+is at an equilibrium.}
+\label{fig:dm_halo}
+\end{figure}
+
+\subsection{Energy conservation and virial theorem}
+
+We want to make sure that energy is conserved in our simulation and we compare it with the virial theorem. Energy conservation is somewhat difficult to do because 
+of the weird units we were forced to use which were Section \ref{sec:methods} (namely $G=1$).
+
+For simplicity, we calculate a \emph{scaling factor} $C$ for comparing units of $\phi$ and $|\mathbf{v}|^2$ by using the virial theorem:
+
+$<v^2>_\tau = C <\phi>_\tau$
+
+In other words, $C * \phi$ is simply $\phi$ in same magnitudes as $v^2$. As for why we need to do this is because Uintah simply does not have support for 
+interpolating large values back and forth, as mentioned in Section \ref{ssec:Uintah}.
+
+We then compare energy conservation by comparing different timesteps' total energy:
+
+$[0.5v^2+C\phi]_{t=t_1} - [0.5v^2+C\phi]_{t=t_2} = Error$
+
+The results are presented here:
+
+
+
+\subsection{NFW profile}
+
+As mentioned in Section \ref{sec:verification}, the dark matter halo density profiles should follow the \emph{NFW} profile given in Equation \ref{eq:nfw}. 
+This is when a dark matter halo has reached an equilibrium, so at a timestep quite far away in the simulation. We made multiple runs, of which we will use 
+the run which used $50^3$ cells and $150000$ particles and periodic boundary conditions. We take a line-out plot of the dark matter density $\rho$ and 
+compare it with the \emph{NFW} profile.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=.8\textwidth]{NFW_profile.pdf}
 \caption{The shape of the radial distribution of mass density suggested by NFW profile (Equation \ref{eq:nfw}), choosing $\rho_0=1$ and $R_s=1$.}
 \label{fig:nfw}
 \end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=.8\textwidth]{NFW-profile.png}
+\caption{Line-out from our simulation. The line-out starts from the center of the dark matter halo}
+\label{fig:simulationnfw}
+\end{figure}
+
+From comparing at Figures \ref{fig:nfw} and \ref{simulationnfw} we simply conclude that the NFW profile could be fitted into the profile of the dark matter 
+halo. Our peak is not as strong as we have a discretized grid which prevents our values from hitting $\infty$. Obviously, the Figure \ref{fig:nfw} is only 
+a plot of the \emph{NFW} profile with coefficients we picked by ourselves. We show it mainly to give the reader a general view of the shape of the 
+\emph{NFW} profile.
+
+Our initial 
+plan was to actually fit the Equation \ref{eq:nfw} into our simulation, but unfortunately \emph{VisIt} visualization tool could not allow us to 
+extract variables from a lineout plot so we could do it in Python. Hence, we instead compared to make sure the \emph{NFW} profile's shape correlated 
+with our lineout plot
+
+\subsection{Scalability}
+
+With the boasted great scalability in Uintah, we decided to run our code on the supercomputer \emph{Voima}. For parallelization, we used an MPI-based 
+approach, so we use processes for parallelizing the threads and use $1$ thread per process. This is due to lack of support for level $3$ parallelization in 
+Voima's \emph{MPICH} library. According to various sources, this could be fixed either by compiling MPICH again from source with different configuration 
+settings or possibly by tampering with some flags. Anyway, we made scalability tests with 10,20,30,40,50,60 and 70 nodes by running a simple test 
+case with $5$ million particles, $300^3$ cells and $5^3$ patches. The log file of the runs is presented in the \emph{Uintah\_run\_information} 
+folder of the root folder. 
+
+For results, we present Figures \ref{fig:scalability1}, \ref{fig:scalability2}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{Uintah/scalability.png}
+\caption{Scalability test for our simulation. We ran the simulation with $5$ million particle and $300^3$ cells.}
+\label{fig:scalability1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{Uintah/scalability2.png}
+\caption{Scalability test for our simulation. We ran the simulation with $5$ million particle and $300^3$ cells. The speed-up is counted relative to 
+10 cores}
+\label{fig:scalability2}
+\end{figure}
+
+Most notably, we see a speed-up of over $8$ in Figure \ref{fig:scalability2}. This can only be explained by some memory optimizations in different 
+processes running on different cores. For example, it is known that with large datasets and with large memory usage, \emph{cache misses} become more frequent as 
+large jumps in memory become more frequent.
+
+We would have also tested for \emph{hybrid parallelization} by employing both processes and threads, but unfortunately that would have required 
+tampering with the MPICH library, which would have cost quite a bit of time.
+
 % visit figure:
 % initial vs final condition
 % mp4 movie...
