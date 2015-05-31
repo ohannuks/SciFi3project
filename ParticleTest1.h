@@ -127,7 +127,7 @@ WARNING
                                        DataWarehouse* old_dw, DataWarehouse* new_dw);
 
     const VarLabel* phi_label;
-    const VarLabel* rho_label;
+    const VarLabel* nodeMass_label;
     const VarLabel* FX_label;
     const VarLabel* FY_label;
     const VarLabel* FZ_label;
