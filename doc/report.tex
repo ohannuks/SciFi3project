@@ -173,7 +173,7 @@ where $T$ is the total kinetic energy, $V$ is the total potential energy and $M$
 \end{equation}
 where we take a time average of the kinetic and potential energy over a time period $\tau$.
 
-We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation and virial theorem we solved a scaling factor $c$ from the virial theorem over some time interval $\tau_1$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau_1}$=c$\langle V\rangle_{\tau_1}$.
+We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:Uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation and virial theorem we solved a scaling factor $c$ from the virial theorem over some time interval $\tau_1$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau_1}$=c$\langle V\rangle_{\tau_1}$.
 
 Then we tested the virial theorem over some other time interval $\tau_2$ as well as energy conservation to see whether they are satisfied when we use the scaling factor $c$.  
 
@@ -369,9 +369,8 @@ linear interpolation method. Our $\rho$ is specified at each cell corner
 the particle mass variable to nearest $8$ nodes. Since $\rho$ is density, we 
 also divide the interpolated mass variable by one cell volume $\Delta x \Delta y \Delta z$. 
 The reason we chose to interpolate only to $8$ nearest nodes (e.g. 
-use linear interpolation) is because it has 
-been shown that this is produces a sufficient accuracy 
-for the Poisson equation\citep{linearinterpolation}. By sufficient, 
+use linear interpolation) is because it can be shown with some effort that this is produces a sufficient accuracy 
+for the Poisson equation. By sufficient, 
 we of course mean that it does not introduce a global error of higher order 
 than what is already in our simulation due to discretizing poisson equation.
 For this purpose, we 
@@ -401,7 +400,7 @@ we use linear interpolation. For every particle $p$, we pick the $8$ nearest
 nodes and interpolate to values $x_i+dx_i$ and $x_i-dx_i$ for every $i$. 
 This means that our gradient calculation is also based on linear interpolation. 
 This introduces some error, but again it has been shown to be sufficient 
-for solving poisson equation\citep{linearinterpolation}.
+for solving poisson equation.
 
 \emph{propagating every particle p}. This is already documented in 
 Algorithm \ref{alg:main}, so we do not elaborate it further here.
@@ -504,7 +503,7 @@ compare it with the \emph{NFW} profile.
 \label{fig:simulationnfw}
 \end{figure}
 
-From comparing at Figures \ref{fig:nfw} and \ref{simulationnfw} we simply conclude that the NFW profile could be fitted into the profile of the dark matter 
+From comparing at Figures \ref{fig:nfw} and \ref{fig:simulationnfw} we simply conclude that the NFW profile could be fitted into the profile of the dark matter 
 halo. Our peak is not as strong as we have a discretized grid which prevents our values from hitting $\infty$. Obviously, the Figure \ref{fig:nfw} is only 
 a plot of the \emph{NFW} profile with coefficients we picked by ourselves. We show it mainly to give the reader a general view of the shape of the 
 \emph{NFW} profile.
