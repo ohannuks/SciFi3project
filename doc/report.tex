@@ -450,9 +450,38 @@ We then compare energy conservation by comparing different timesteps' total ener
 
 $[0.5v^2+C\phi]_{t=t_1} - [0.5v^2+C\phi]_{t=t_2} = Error$
 
-The results are presented here:
+In this case, we only look at $10$ timesteps.
+
+The results are presented here and under \newline \emph{./doc/results/energyConservation/virialTheoryAndEnergyConservationResults.dat}:
 
 
+\begin{verbatim}
+Scaling factor, calculated from virial theorem: -2.00313776377e-05
+Energy conservation at timestep 140; potential: 2171895072.08, v_squared: 2189590262.88
+Total Energy: 4361485334.96
+Energy conservation at timestep 141; potential: 2171448825.2, v_squared: 2177912632.04
+Total Energy: 4349361457.24
+Energy conservation at timestep 142; potential: 2171267304.94, v_squared: 2148816440.27
+Total Energy: 4320083745.2
+Energy conservation at timestep 143; potential: 2170731390.9, v_squared: 2188656985.4
+Total Energy: 4359388376.3
+Energy conservation at timestep 144; potential: 2169414726.35, v_squared: 2172310920.46
+Total Energy: 4341725646.81
+Energy conservation at timestep 145; potential: 2167363889.69, v_squared: 2150885442.1
+Total Energy: 4318249331.79
+Energy conservation at timestep 146; potential: 2165176115.51, v_squared: 2152619861.33
+Total Energy: 4317795976.84
+Energy conservation at timestep 147; potential: 2163085388.64, v_squared: 2172501600.59
+Total Energy: 4335586989.23
+Energy conservation at timestep 148; potential: 2161168195.91, v_squared: 2178308681.32
+Total Energy: 4339476877.23
+Energy conservation at timestep 149; potential: 2159870013.0, v_squared: 2139818095.83
+Total Energy: 4299688108.84
+\end{verbatim}
+
+It looks as though our energy is not conserved perfectly, but it is in the right orders of magnitude. The largest change (between first and last timestep) for 
+example is merely $E_{diff}=61797226$, whose relative value is $61797226/4299688108 \approx 0.014$. We assume this depends on both the choice of $dt$ and 
+\emph{resolution} in our algorithm. This will be discussed in the Section \ref{sec:conclusions}.
 
 \subsection{NFW profile}
 
