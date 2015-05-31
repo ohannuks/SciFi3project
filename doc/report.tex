@@ -91,7 +91,7 @@ The overall algortihm is expressed in Algortihm \ref{alg:main}.
 \-\hspace{0ex}interpolate initial $\rho$ from particle mass $m_p$\\
 \-\hspace{0ex}set initial guess for $\phi$\\
 \-\hspace{0ex}{\bf loop}\\
-\-\hspace{4ex}solve $\phi$ at the nodes using the SOR algorithm\\
+\-\hspace{4ex}solve $\phi$ at the nodes using the Jacobi method\\
 \-\hspace{4ex}calculate $\mathbf{F}=-\nabla \phi$ with respect to each particle $p$\\
 \-\hspace{4ex}{\bf for} every particle $p$ {\bf do}\\
 \-\hspace{8ex}$\mathbf{v}_p(t+\Delta t) = (\mathbf{F}_p/m)\Delta t + \mathbf{v}_p(t)$\\
@@ -113,7 +113,7 @@ The Poisson's equation of gravity is discretized to
 \end{aligned}
 \end{equation}
 
-The gravitational potential $\phi$ is then solved at each node using using the successive over-relaxation (SOR) algortihm (Algorithm \ref{alg:SOR}) . In the calculation of the potential gradient we obtain the potential values near the particles by interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
+The gravitational potential $\phi$ is then solved at each node using using the Jacobi method (Algorithm \ref{alg:Jacobi}) . In the calculation of the potential gradient we obtain the potential values near the particles by linear interpolation and then calculate the gradient by numerical differentiation. For exmaple at the $p$th particle the gradient is calculated in the $x$ direction as
 \begin{equation}
 (\nabla \phi)(x_p)=\frac{\phi(x_p+dx)-\phi(x_p-dx)}{2dx},
 \end{equation}
@@ -124,17 +124,17 @@ The particle velocity and position are evolved over a small time step $dt$, assu
 &=\mathbf{v}_p(t+\Delta t) = (\mathbf{F}_p/m)\Delta t + \mathbf{v}_p(t)\\
 &=\mathbf{x}_p(t+\Delta t) = \mathbf{v}_p(t)\Delta t + \mathbf{x}_p(t).
 \end{align}
-After this using the new positions the particle masses are interpolated back to the nodes to obtain a new mass density $\rho$.
+After this using the new positions the particle masses are linearly interpolated back to the nodes to obtain a new mass density $\rho$.
 
 \begin{algorithm}[H]
 \hspace{0.1\textwidth}\parbox{.8\textwidth}{
-\-\hspace{0ex}{\bf function} SOR($\phi$, tolerance, max\_iterations)\\
+\-\hspace{0ex}{\bf function} Jacobi($\phi$, tolerance, max\_iterations)\\
 \-\hspace{4ex}{\bf for} $n = 0,1,\ldots\mbox{max\_iterations}$ {\bf do}\\
 \-\hspace{8ex}error $\sigma\leftarrow 0$\\
 \-\hspace{8ex}{\bf for} every node $\phi_{i,j,k}$\\
-\-\hspace{12ex}$\phi_{i,j,k}^{(n+1)} \leftarrow (1-\omega)\phi_{i,j,k}^{(n)} + \frac{\omega}{6} (\phi_{i+1,j,k}^{(n)} +\phi_{i-1,j,k}^{(n)}+$\\
+\-\hspace{12ex}$\phi_{i,j,k}^{(n+1)} \leftarrow \phi_{i,j,k}^{(n)} + (\phi_{i+1,j,k}^{(n)} +\phi_{i-1,j,k}^{(n)}+$\\
 \-\hspace{12ex}$\phantom{\phi_{i,j,k}^{(n+1)} \leftarrow }\phi_{i,j+1,k}^{(n)}+ \phi_{i,j-1,k}^{(n)} + \phi_{i,j,k+1}^{(n)} + \phi_{i,j,k-1}^{(n)} +$\\
-\-\hspace{12ex}$\phantom{\phi_{i,j,k}^{(n+1)} \leftarrow} h^3\rho_{i,j,k})$\\
+\-\hspace{12ex}$\phantom{\phi_{i,j,k}^{(n+1)} \leftarrow} h^2\rho_{i,j,k})$\\
 \-\hspace{12ex}update $\sigma$\\
 \-\hspace{8ex}{\bf end for}\\
 \-\hspace{8ex}{\bf if} $\sigma \leq $ tolerance, {\bf break}\\
@@ -142,7 +142,7 @@ After this using the new positions the particle masses are interpolated back to 
 \-\hspace{4ex}{\bf return} $\phi$\\
 \-\hspace{0ex}{\bf end function}}
 \caption{Calculating potential $\phi$ using the SOR algorithm.}
-\label{alg:SOR}
+\label{alg:Jacobi}
 \end{algorithm}
 
 
@@ -163,17 +163,15 @@ T+V&=\mathrm{constant}\\
 \frac{1}{2}\sum_{p} m_pv_p^2 + M\sum_{i,j,k}\phi_{i,j,k} &= \mathrm{constant} 
 \end{aligned}
 \end{equation}
-where $T$ is the total kinetic energy, $V$ is the total potential energy and $M$ refers to the total mass of the particles. In the context of gravitationl interactions only, the virial theorem is:
+where $T$ is the total kinetic energy, $V$ is the total potential energy and $M$ refers to the total mass of the particles. In the context of gravitationl interactions only, the virial theorem states:
 \begin{equation}
 \langle T \rangle_\tau = -\frac{1}{2}\langle V \rangle_\tau
 \end{equation}
 where we take a time average of the kinetic and potential energy over a time period $\tau$.
 
-We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation and virial theorem we solved a scaling factor $c$ from the virial theorem over some time interval $\tau_1$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau_1}$=c$\langle V\rangle_{\tau_1}$.
+We could not use time steps, distances or masses with proper units because the Uintah interpolator had some problems with large numerical values (see section \ref{ssec:uintah}). Therefore the set of values in our simulation have arbitrary units. To test energy conservation we solved a scaling factor $c$ from the virial theorem over some time interval $\tau$. The scaling factor relates the kinetic energy $T$ and potential energy $V$ of the system via $\langle T \rangle_{\tau}$=c$\langle V\rangle_{\tau}$. We then tested whether energy conservation is satisfied when we use the scaling factor $c$.  
 
-Then we tested the virial theorem over some other time interval $\tau_2$ as well as energy conservation to see whether they are satisfied when we use the scaling factor $c$.  
-
-We also compare the radial mass distribution of the obtained halo with the Navarro-Frenkel-White (NFW) profile, which is the radial mass distribution often obtained from simulations \citep{Navarro1995}. The profile is given by  
+We also compared the radial mass distribution of the obtained halo with the Navarro-Frenkel-White (NFW) profile, which is the radial mass distribution often obtained from simulations \citep{Navarro1995}. The profile is given by  
 \begin{equation}
 \rho(r) = \frac{\rho_0}{\frac{r}{R_s}\left(1 + \frac{r}{R_s}\right)^2},
 \label{eq:nfw}
@@ -276,7 +274,17 @@ Throughout our simulation,
 % initial vs final condition
 % mp4 movie...
 \section{CONCLUSIONS}
-We simulated a dark matter halo by solving a Poisson's equation coupled with $N$ particles. Other main purpose of the project was to learn  The software used was Uintah.  
+This project had two main purposes. Firstly we simulated a dark matter halo by solving the Poisson's equation of gravity coupled with dark matter particles in the framework provided by Uintah. Secondly, and perhaps more importantly, we learned to use some of the powerful tools provided by Uintah that provide parallelized and optimized grid framework for solving a multitude of problems in computational physics.
+
+The simulation results are physically sound as they comply with energy conservation and virial theorem and reproduce a mass density distribution similar to other simulations.
+
+One important Uintah tool that we did not utilize due to time constratints is adaptive mesh refinement (AMR). This essentially means that based on some predefined condition(s) specified in the simulation, the resolution would be increased in some parts of the grid. This would let us emphasize interesting regions in the simulation and de-emphasize less interesting regions. This also means that the simulations becomes computationally more efficient. AMR is something we wish to explore more in the future.
+
+NFW profile could be fitted to the data from our simulation to find out the parameters $(\rho_0,R_s)$. These parameters could then be compared with other studies. We also want to make the simulation with proper units and realistic scale, this would probably mean solving some problems with the Uintah interpolator. Also the the effect of resolution on the accuracy of the results could be studied more extensively, both analytically and numerically. 
+
+        
+
+        
 % what should we do next?
 
 \renewcommand{\refname}{REFERENCES}
