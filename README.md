@@ -7,7 +7,7 @@ The code solves Poisson equation using the Particle-In-Cell (PIC) approach in a 
 
 A few notes: If you're curious about using Uintah these may be helpful example files to demonstrate what one can do in the framework. The code does NOT compile out of the box; please see about installing both UINTAH and VISIT visualization software on your computer before running the code. The hierarchy and overall look has been largely neglected due to time issues I and Janne had, but the coding standard should be clean. Enjoy!
 
-Oh and Ps. we did not remove the licenses from the files, and we claim no ownership of Uintah (University of Utah) or VisIt (Lawrence Livermore National Laboratory):
+Oh and Ps. we did not remove the licenses from the files, and we claim no credits for Uintah (University of Utah) or VisIt (Lawrence Livermore National Laboratory):
 http://uintah.utah.edu/
 https://wci.llnl.gov/simulation/computer-codes/visit/
 
